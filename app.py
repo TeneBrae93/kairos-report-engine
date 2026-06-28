@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 import uuid
-from database.db import init_db
+from database.db import init_db, get_user_count, add_user, get_user, update_user_mfa
 from database import operations as db
 from parsers.nessus import parse_nessus
 from parsers.burp import parse_burp
@@ -12,6 +12,12 @@ import csv
 import io
 import re
 import base64
+import pyotp
+import qrcode
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
+
+ph = PasswordHasher()
 
 def get_image_base64(path):
     with open(path, "rb") as image_file:
@@ -49,18 +55,29 @@ init_db()
 st.set_page_config(page_title="Kairos Report Engine", page_icon="assets/KairosSecLogo.png", layout="wide")
 
 def main():
+    if not st.session_state.get('logged_in'):
+        if get_user_count() == 0:
+            show_setup()
+        else:
+            show_login()
+        return
+
     logo_b64 = get_image_base64("assets/KairosSecLogo.png")
     st.sidebar.markdown(f'<a href="https://kairos-sec.com" target="_blank"><img src="data:image/png;base64,{logo_b64}" alt="Kairos Sec" width="75%" style="margin-bottom: 20px;"></a>', unsafe_allow_html=True)
     st.sidebar.title("Kairos Report Engine")
-    menu = ["Dashboard", "Manage Projects", "Add Findings", "Vuln Library", "Generate Report", "Templates"]
+    menu = ["Dashboard", "Manage Projects", "Add Findings", "Vuln Library", "Generate Report", "Templates", "Profile", "Admin: Users", "Logout"]
     
     if "nav" not in st.session_state:
         st.session_state.nav = "Dashboard"
         
     choice = st.sidebar.radio("Navigation", menu, index=menu.index(st.session_state.nav))
     if choice != st.session_state.nav:
-        st.session_state.nav = choice
-        st.rerun()
+        if choice == "Logout":
+            st.session_state.clear()
+            st.rerun()
+        else:
+            st.session_state.nav = choice
+            st.rerun()
 
     if st.session_state.nav == "Dashboard":
         show_dashboard()
@@ -74,6 +91,10 @@ def main():
         show_generate_report()
     elif st.session_state.nav == "Templates":
         show_templates()
+    elif st.session_state.nav == "Profile":
+        show_profile()
+    elif st.session_state.nav == "Admin: Users":
+        show_admin_users()
 
 def show_dashboard():
     st.title("Kairos Report Engine")
@@ -703,6 +724,157 @@ def show_templates():
                         st.rerun()
                     except Exception as e:
                         st.error(f"Failed to delete template: {e}")
+
+def show_setup():
+    st.title("Kairos First-Time Setup")
+    st.write("Welcome to Kairos Report Engine. Since there are no users in the system, you must create the initial Administrator account.")
+    
+    with st.form("setup_form"):
+        username = st.text_input("Administrator Username")
+        password = st.text_input("Passphrase", type="password")
+        password_confirm = st.text_input("Confirm Passphrase", type="password")
+        
+        if st.form_submit_button("Create Administrator"):
+            if password != password_confirm:
+                st.error("Passphrases do not match.")
+            elif len(password) < 12:
+                st.error("Passphrase must be at least 12 characters.")
+            else:
+                try:
+                    hash_pw = ph.hash(password)
+                    add_user(username, hash_pw)
+                    st.success("Administrator account created! Please log in.")
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+
+def show_login():
+    st.title("Kairos Login")
+    
+    if 'login_attempts' not in st.session_state:
+        st.session_state.login_attempts = 0
+    if 'lockout_until' not in st.session_state:
+        st.session_state.lockout_until = 0
+        
+    import time
+    if time.time() < st.session_state.lockout_until:
+        st.error(f"Too many failed attempts. Try again in {int(st.session_state.lockout_until - time.time())} seconds.")
+        return
+        
+    if 'mfa_user' in st.session_state:
+        st.info("MFA Token Required")
+        with st.form("mfa_form"):
+            token = st.text_input("6-digit TOTP Token")
+            if st.form_submit_button("Verify"):
+                user = get_user(st.session_state.mfa_user)
+                totp = pyotp.TOTP(user['mfa_secret'])
+                if totp.verify(token):
+                    st.session_state.logged_in = True
+                    st.session_state.username = user['username']
+                    del st.session_state.mfa_user
+                    st.session_state.login_attempts = 0
+                    st.rerun()
+                else:
+                    st.error("Invalid token.")
+                    st.session_state.login_attempts += 1
+                    if st.session_state.login_attempts >= 3:
+                        st.session_state.lockout_until = time.time() + 15
+                        st.rerun()
+        return
+
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Passphrase", type="password")
+        
+        if st.form_submit_button("Login"):
+            user = get_user(username)
+            if not user:
+                st.error("Invalid credentials.")
+                st.session_state.login_attempts += 1
+            else:
+                try:
+                    ph.verify(user['password_hash'], password)
+                    if user['mfa_enabled']:
+                        st.session_state.mfa_user = username
+                        st.rerun()
+                    else:
+                        st.session_state.logged_in = True
+                        st.session_state.username = username
+                        st.session_state.login_attempts = 0
+                        st.rerun()
+                except VerifyMismatchError:
+                    st.error("Invalid credentials.")
+                    st.session_state.login_attempts += 1
+            
+            if st.session_state.login_attempts >= 3:
+                st.session_state.lockout_until = time.time() + 15
+                st.rerun()
+
+def show_profile():
+    st.title("Security Profile")
+    st.write(f"Logged in as: **{st.session_state.username}**")
+    
+    user = get_user(st.session_state.username)
+    
+    st.subheader("Multi-Factor Authentication (TOTP)")
+    if user['mfa_enabled']:
+        st.success("MFA is currently ENABLED on your account.")
+        if st.button("Disable MFA"):
+            update_user_mfa(st.session_state.username, None, False)
+            st.success("MFA Disabled.")
+            st.rerun()
+    else:
+        st.warning("MFA is not enabled.")
+        if 'mfa_setup_secret' not in st.session_state:
+            if st.button("Enable MFA"):
+                st.session_state.mfa_setup_secret = pyotp.random_base32()
+                st.rerun()
+                
+        if 'mfa_setup_secret' in st.session_state:
+            secret = st.session_state.mfa_setup_secret
+            totp_uri = pyotp.totp.TOTP(secret).provisioning_uri(
+                name=st.session_state.username, issuer_name="Kairos Report Engine"
+            )
+            
+            qr = qrcode.make(totp_uri)
+            import io
+            img_byte_arr = io.BytesIO()
+            qr.save(img_byte_arr, format='PNG')
+            img_bytes = img_byte_arr.getvalue()
+            
+            st.image(img_bytes, caption="Scan with Authenticator App", width=300)
+            st.write(f"Manual Entry Code: `{secret}`")
+            
+            with st.form("verify_mfa_setup"):
+                code = st.text_input("Enter 6-digit code to verify")
+                if st.form_submit_button("Verify and Enable"):
+                    totp = pyotp.TOTP(secret)
+                    if totp.verify(code):
+                        update_user_mfa(st.session_state.username, secret, True)
+                        del st.session_state.mfa_setup_secret
+                        st.success("MFA Successfully Enabled!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid code, try again.")
+
+def show_admin_users():
+    st.title("User Management")
+    st.write("Create additional accounts for your team.")
+    
+    with st.form("add_user_form"):
+        username = st.text_input("New Username")
+        password = st.text_input("Passphrase", type="password")
+        
+        if st.form_submit_button("Create User"):
+            if len(password) < 12:
+                st.error("Passphrase must be at least 12 characters.")
+            else:
+                try:
+                    hash_pw = ph.hash(password)
+                    add_user(username, hash_pw)
+                    st.success(f"User {username} created!")
+                except ValueError as e:
+                    st.error(str(e))
 
 if __name__ == "__main__":
     main()

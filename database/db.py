@@ -14,6 +14,17 @@ def init_db():
     conn = get_connection()
     cursor = conn.cursor()
 
+    # Create Users Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            mfa_secret TEXT,
+            mfa_enabled BOOLEAN DEFAULT 0
+        )
+    ''')
+
     # Create Settings Table (Firm profile boilerplates)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS settings (
@@ -144,6 +155,42 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+# User Management Functions
+def get_user_count():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM users")
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+def add_user(username, password_hash):
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, password_hash))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        raise ValueError("Username already exists")
+    finally:
+        conn.close()
+
+def get_user(username):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def update_user_mfa(username, mfa_secret, mfa_enabled):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET mfa_secret = ?, mfa_enabled = ? WHERE username = ?", (mfa_secret, mfa_enabled, username))
+    conn.commit()
+    conn.close()
+
 
 if __name__ == '__main__':
     init_db()
