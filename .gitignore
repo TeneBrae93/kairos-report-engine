@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Streamlit config (optional)
+.streamlit/
+
+# Databases and temporary data
+data/*
+!data/.gitkeep
+
+# Generated reports
+reports/*
+!reports/.gitkeep
+
+# IDEs
+.idea/
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db
