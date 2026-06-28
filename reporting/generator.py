@@ -164,6 +164,7 @@ def generate_report(project, client, firm, findings, output_path):
 <div style="page-break-before: always;"></div>
 {% endif %}
 
+<div style="page-break-inside: avoid;">
 ### <a name="{{ finding.title | lower | replace(' ', '-') | replace('(', '') | replace(')', '') }}"></a>{{ finding.title }}
 
 <div style="margin-bottom: 10px;">
@@ -179,6 +180,7 @@ def generate_report(project, client, firm, findings, output_path):
 {% endif %}
 
 <div style="page-break-after: avoid; font-weight: bold; margin-bottom: 10px; margin-top: 20px;">Description:</div>
+</div>
 
 {{ finding.description }}
 

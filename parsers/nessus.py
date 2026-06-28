@@ -9,7 +9,7 @@ def parse_nessus(file_path: str) -> list[dict]:
     
     Returns a list of dictionaries with extracted information.
     """
-    findings = []
+    findings_map = {}
     
     try:
         tree = ET.parse(file_path)
@@ -49,15 +49,42 @@ def parse_nessus(file_path: str) -> list[dict]:
                 except ValueError:
                     cvss = 0.0
                     
-                finding = {
-                    'host': host,
-                    'title': title,
-                    'severity': severity,
-                    'description': description,
-                    'remediation': remediation,
-                    'cvss': cvss,
-                }
-                findings.append(finding)
+                port = item.attrib.get('port', '0')
+                protocol = item.attrib.get('protocol', 'tcp')
+                host_str = f"{host}:{port} ({protocol})"
+                
+                if title not in findings_map:
+                    findings_map[title] = {
+                        'title': title,
+                        'severity': severity,
+                        'description': description,
+                        'remediation': remediation,
+                        'cvss': cvss,
+                        'hosts': [host_str]
+                    }
+                else:
+                    if host_str not in findings_map[title]['hosts']:
+                        findings_map[title]['hosts'].append(host_str)
+                        
+        findings = []
+        for title, data in findings_map.items():
+            hosts = data['hosts']
+            if len(hosts) > 1:
+                final_host = "Multiple Assets"
+                host_list = "\n".join([f"- {h}" for h in hosts])
+                final_desc = f"**Affected Assets:**\n{host_list}\n\n{data['description']}"
+            else:
+                final_host = hosts[0]
+                final_desc = data['description']
+                
+            findings.append({
+                'host': final_host,
+                'title': data['title'],
+                'severity': data['severity'],
+                'description': final_desc,
+                'remediation': data['remediation'],
+                'cvss': data['cvss']
+            })
                 
     except ET.ParseError as e:
         logger.error(f"Error parsing Nessus file {file_path}: {e}")

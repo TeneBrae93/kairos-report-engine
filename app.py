@@ -10,12 +10,38 @@ from streamlit_jodit import st_jodit
 import json
 import csv
 import io
-
+import re
 import base64
 
 def get_image_base64(path):
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()
+
+def process_base64_images(html_content, client_id, project_id):
+    if not html_content:
+        return html_content
+    
+    pattern = re.compile(r'src="data:image/([^;]+);base64,([^"]+)"')
+    
+    def replacer(match):
+        ext = match.group(1)
+        b64_data = match.group(2)
+        
+        asset_dir = f"data/projects/{client_id}/{project_id}/assets"
+        os.makedirs(asset_dir, exist_ok=True)
+        
+        filename = f"{uuid.uuid4().hex}.{ext}"
+        filepath = os.path.join(asset_dir, filename)
+        
+        try:
+            with open(filepath, "wb") as fh:
+                fh.write(base64.b64decode(b64_data))
+            abs_path = os.path.abspath(filepath)
+            return f'src="file://{abs_path}"'
+        except Exception as e:
+            return match.group(0)
+            
+    return pattern.sub(replacer, html_content)
 
 # Initialize DB on first run
 init_db()
@@ -124,6 +150,20 @@ def show_dashboard():
             db.update_setting('firm_website', firm_website)
             st.success("Firm Settings updated!")
             st.rerun()
+
+    st.divider()
+    st.subheader("Data Management")
+    st.write("Export your entire local database and project assets to a portable ZIP file.")
+    if st.button("Generate Backup Archive"):
+        import shutil
+        shutil.make_archive('kairos_backup', 'zip', 'data')
+        st.session_state.backup_ready = True
+        st.rerun()
+        
+    if st.session_state.get('backup_ready'):
+        if os.path.exists('kairos_backup.zip'):
+            with open('kairos_backup.zip', 'rb') as f:
+                st.download_button("Download ZIP", data=f, file_name="kairos_backup.zip", mime="application/zip")
 
 def show_manage_projects():
     st.title("Manage Projects")
@@ -432,7 +472,8 @@ def show_manage_findings():
                     e_steps = st_jodit(value=f.get('steps_to_reproduce', ''), config=jodit_config, key=f"e_steps_{f['id']}")
                     
                     if st.form_submit_button("Save Changes"):
-                        db.update_project_finding(f['id'], e_title, e_sev, e_desc, e_rem, e_cvss, e_host, e_path, e_cvss_vector, e_refs, e_steps)
+                        processed_steps = process_base64_images(e_steps, active_project['client_id'], project_id)
+                        db.update_project_finding(f['id'], e_title, e_sev, e_desc, e_rem, e_cvss, e_host, e_path, e_cvss_vector, e_refs, processed_steps)
                         st.success("Saved!")
                         st.rerun()
                 
@@ -551,7 +592,8 @@ def show_manage_findings():
             mf_rem = st.text_area("Remediation")
             mf_refs = st.text_area("References (one URL per line)")
             if st.form_submit_button("Add Finding") and mf_title:
-                db.add_project_finding(project_id, mf_title, mf_sev, mf_desc, mf_rem, mf_cvss, mf_host, mf_path, mf_cvss_vector, mf_refs, mf_steps)
+                processed_mf_steps = process_base64_images(mf_steps, active_project['client_id'], project_id)
+                db.add_project_finding(project_id, mf_title, mf_sev, mf_desc, mf_rem, mf_cvss, mf_host, mf_path, mf_cvss_vector, mf_refs, processed_mf_steps)
                 st.success("Added finding.")
                 st.rerun()
 

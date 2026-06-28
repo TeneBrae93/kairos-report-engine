@@ -16,7 +16,7 @@ def parse_burp(file_path: str) -> list[dict]:
     
     Returns a list of dictionaries with extracted information.
     """
-    findings = []
+    findings_map = {}
     
     try:
         tree = ET.parse(file_path)
@@ -70,16 +70,45 @@ def parse_burp(file_path: str) -> list[dict]:
                 
             remediation = "\n\n".join(rem_parts)
             
-            finding = {
-                'host': host,
-                'path': path,
-                'title': title,
-                'severity': severity,
-                'description': description,
-                'remediation': remediation,
-                'cvss': 0.0, # Burp XML does not natively export CVSS in standard issues
-            }
-            findings.append(finding)
+            asset_str = f"{host}{path}" if path else host
+            if not asset_str:
+                asset_str = "Unknown Asset"
+                
+            if title not in findings_map:
+                findings_map[title] = {
+                    'title': title,
+                    'severity': severity,
+                    'description': description,
+                    'remediation': remediation,
+                    'cvss': 0.0,
+                    'assets': [asset_str]
+                }
+            else:
+                if asset_str not in findings_map[title]['assets']:
+                    findings_map[title]['assets'].append(asset_str)
+                    
+        findings = []
+        for title, data in findings_map.items():
+            assets = data['assets']
+            if len(assets) > 1:
+                final_host = "Multiple Assets"
+                final_path = "Multiple Paths"
+                asset_list = "\n".join([f"- {a}" for a in assets])
+                final_desc = f"**Affected Assets:**\n{asset_list}\n\n{data['description']}"
+            else:
+                final_host = assets[0]
+                final_path = ""
+                final_desc = data['description']
+                
+            findings.append({
+                'host': final_host,
+                'path': final_path,
+                'title': data['title'],
+                'severity': data['severity'],
+                'description': final_desc,
+                'remediation': data['remediation'],
+                'cvss': data['cvss']
+            })
             
     except ET.ParseError as e:
         logger.error(f"Error parsing Burp file {file_path}: {e}")
