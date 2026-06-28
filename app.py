@@ -26,7 +26,7 @@ def main():
     logo_b64 = get_image_base64("assets/KairosSecLogo.png")
     st.sidebar.markdown(f'<a href="https://kairos-sec.com" target="_blank"><img src="data:image/png;base64,{logo_b64}" alt="Kairos Sec" width="75%" style="margin-bottom: 20px;"></a>', unsafe_allow_html=True)
     st.sidebar.title("Kairos Report Engine")
-    menu = ["Dashboard", "Clients & Projects", "Vuln Library", "Manage Findings", "Generate Report", "Settings"]
+    menu = ["Dashboard", "Manage Projects", "Add Findings", "Vuln Library", "Generate Report", "Templates"]
     
     if "nav" not in st.session_state:
         st.session_state.nav = "Dashboard"
@@ -38,20 +38,20 @@ def main():
 
     if st.session_state.nav == "Dashboard":
         show_dashboard()
-    elif st.session_state.nav == "Clients & Projects":
-        show_clients_projects()
+    elif st.session_state.nav == "Manage Projects":
+        show_manage_projects()
+    elif st.session_state.nav == "Add Findings":
+        show_manage_findings()
     elif st.session_state.nav == "Vuln Library":
         show_vuln_library()
-    elif st.session_state.nav == "Manage Findings":
-        show_manage_findings()
     elif st.session_state.nav == "Generate Report":
         show_generate_report()
-    elif st.session_state.nav == "Settings":
-        show_settings()
+    elif st.session_state.nav == "Templates":
+        show_templates()
 
 def show_dashboard():
     st.title("Kairos Report Engine")
-    st.write("Welcome to the Kairos Report Engine.")
+    st.write("Welcome to the Kairos Report Engine. Use this dashboard as your central hub to configure firm-wide settings, manage your client roster, and quickly jump into specific client projects.")
     
     clients = db.get_clients()
     projects = db.get_projects()
@@ -62,6 +62,55 @@ def show_dashboard():
     col2.metric("Total Projects", len(projects))
     col3.metric("Vulns in Library", len(vulns))
     
+    st.divider()
+    
+    st.subheader("Client Overview")
+    
+    with st.expander("Add New Client"):
+        with st.form("dash_add_client"):
+            c_name = st.text_input("Client Name")
+            c_desc = st.text_area("Description")
+            if st.form_submit_button("Add Client") and c_name:
+                db.add_client(c_name, c_desc)
+                st.success(f"Added client: {c_name}")
+                st.rerun()
+
+    clients = db.get_clients()
+    if not clients:
+        st.info("No clients found. Add a new client above to get started.")
+    else:
+        client_options = {c['name']: c['id'] for c in clients}
+        client_options_list = list(client_options.keys())
+        default_index = 0
+        if 'active_client_id' in st.session_state:
+            for i, c_name in enumerate(client_options_list):
+                if client_options[c_name] == st.session_state.active_client_id:
+                    default_index = i
+                    break
+                    
+        selected_client_name = st.selectbox("Active Client", client_options_list, index=default_index)
+        client_id = client_options[selected_client_name]
+        st.session_state.active_client_id = client_id
+        
+        client_projects = [p for p in projects if p['client_id'] == client_id]
+        
+        if client_projects:
+            st.markdown(f"**Projects for {selected_client_name}**")
+            for cp in client_projects:
+                with st.container():
+                    col_pn, col_pb1, col_pb2 = st.columns([2, 1, 1])
+                    col_pn.write(f"- {cp['name']} ({cp.get('project_type', 'Unknown Type')})")
+                    if col_pb1.button("Edit Project", key=f"dash_go_proj_{cp['id']}"):
+                        st.session_state.nav = "Manage Projects"
+                        st.session_state.edit_project_id = cp['id']
+                        st.rerun()
+                    if col_pb2.button("Add Findings", key=f"dash_add_find_{cp['id']}"):
+                        st.session_state.nav = "Add Findings"
+                        st.session_state.manage_findings_project_id = cp['id']
+                        st.rerun()
+        else:
+            st.write(f"*No projects assigned to {selected_client_name} yet.*")
+
     st.divider()
     
     settings = db.get_settings()
@@ -76,244 +125,136 @@ def show_dashboard():
             st.success("Firm Settings updated!")
             st.rerun()
 
-    st.divider()
-    st.subheader("Project Overview")
+def show_manage_projects():
+    st.title("Manage Projects")
+    st.write("Create and edit penetration testing projects for your active client. Here you can define the project scope, tester details, overall strengths/weaknesses, and the specific tools utilized during the engagement.")
     
+    clients = db.get_clients()
     if not clients:
-        st.info("No clients found. Head to 'Clients & Projects' to get started.")
+        st.warning("Please create a client on the Dashboard first.")
         return
+
+    client_options = {c['name']: c['id'] for c in clients}
+    active_client_id = st.session_state.get('active_client_id')
+    if active_client_id not in client_options.values():
+        active_client_id = clients[0]['id']
+        st.session_state.active_client_id = active_client_id
         
-    col_c, col_p = st.columns(2)
-    with col_c:
-        client_options = {c['name']: c['id'] for c in clients}
-        selected_client = st.selectbox("Select Client", list(client_options.keys()))
+    active_client_name = next(c['name'] for c in clients if c['id'] == active_client_id)
+    PROJECT_TYPES = [
+        "Web Application Penetration Test",
+        "Internal Network Penetration Test",
+        "External Network Penetration Test",
+        "AI/LLM Penetration Test",
+        "Cloud Penetration Test"
+    ]
+    
+    st.subheader("Add New Project")
+    with st.form("add_project"):
+        p_name = st.text_input("Project Name")
+        p_app_name = st.text_input("Application Name (For Cover Page)")
+        st.info(f"Adding new project for **{active_client_name}**")
+        p_type = st.selectbox("Project Type", PROJECT_TYPES)
+        col_s, col_e, col_r = st.columns(3)
+        p_start = col_s.date_input("Start Date").strftime('%Y-%m-%d')
+        p_end = col_e.date_input("End Date").strftime('%Y-%m-%d')
+        p_report_date = col_r.date_input("Report Date").strftime('%Y-%m-%d')
         
-        client_id = client_options[selected_client]
-        client_projects = [p for p in projects if p['client_id'] == client_id]
-        
-    with col_p:
-        if not client_projects:
-            st.info(f"No projects found for client: {selected_client}.")
-            return
-    
-        project_options = {p['name']: p for p in client_projects}
-        selected_project = st.selectbox("Select Project", list(project_options.keys()))
-        proj = project_options[selected_project]
-    
-    proj_findings = db.get_project_findings(proj['id'])
-    
-    c1, c2 = st.columns(2)
-    with c1:
-        st.write(f"**Start Date:** {proj.get('start_date', 'N/A')}")
-        st.write(f"**End Date:** {proj.get('end_date', 'N/A')}")
-        st.write(f"**Tester:** {proj.get('tester_name', 'N/A')}")
-    with c2:
-        st.write(f"**Total Findings:** {len(proj_findings)}")
-        if st.button("Go To Project"):
-            st.session_state.nav = "Clients & Projects"
-            st.session_state.edit_project_id = proj['id']
+        if st.form_submit_button("Add Project") and p_name:
+            settings = db.get_settings()
+            db.add_project(
+                name=p_name,
+                application_name=p_app_name, 
+                client_id=active_client_id, 
+                project_type=p_type,
+                start_date=p_start, 
+                end_date=p_end,
+                report_date=p_report_date,
+                tester_name=settings.get('tester_name', ''),
+                tester_description=settings.get('tester_description', ''),
+                hosts='',
+                summary_of_strengths=settings.get('summary_of_strengths', ''),
+                summary_of_weaknesses=settings.get('summary_of_weaknesses', ''),
+                cvss_mapping=settings.get('cvss_mapping', ''),
+                tools_used=settings.get('tools_used', '')
+            )
+            st.success(f"Added project: {p_name}")
             st.rerun()
-        
-    st.divider()
-    st.subheader("Tools Used")
-    st.write("Manage the tools used during this engagement. These will be formatted as a table in the final report.")
-    
-    tools_str = proj.get('tools_used', '[]')
-    try:
-        tools_list = json.loads(tools_str)
-        if not isinstance(tools_list, list):
-            tools_list = [{"Name": "Tool", "Description": tools_str}]
-    except Exception:
-        tools_list = [{"Name": "Unknown Tool", "Description": tools_str}] if tools_str else []
-        
-    if not tools_list:
-        tools_list = [{"Name": "", "Description": ""}]
-        
-    edited_tools = st.data_editor(
-        tools_list, 
-        column_config={
-            "Name": st.column_config.TextColumn("Tool Name", width="medium", required=True),
-            "Description": st.column_config.TextColumn("Description", width="large", required=True)
-        },
-        num_rows="dynamic", 
-        use_container_width=True,
-        key="dash_tools_editor"
-    )
-    
-    if st.button("Save Tools to Project"):
-        cleaned_tools = [t for t in edited_tools if t.get("Name") or t.get("Description")]
-        db.update_project(
-            proj['id'], proj['name'], proj.get('application_name', ''), proj.get('start_date', ''), proj.get('end_date', ''), proj.get('report_date', ''), 
-            proj.get('tester_name', ''), proj.get('tester_description', ''), proj.get('hosts', ''), 
-            proj.get('summary_of_strengths', ''), proj.get('summary_of_weaknesses', ''), 
-            proj.get('cvss_mapping', ''), json.dumps(cleaned_tools)
-        )
-        st.success("Tools saved successfully!")
-        st.rerun()
-
-def show_settings():
-    st.title("Settings / Firm Profile")
-    st.write("Manage firm information and default boilerplate templates used in reports.")
-    
-    settings = db.get_settings()
-    
-    with st.form("settings_form"):
-        firm_name = st.text_input("Firm Name", value=settings.get('firm_name', ''))
-        firm_website = st.text_input("Firm Website", value=settings.get('firm_website', ''))
-        exec_summary = st.text_area("Executive Summary Boilerplate", value=settings.get('executive_summary_template', ''), height=200)
-        
-        submitted = st.form_submit_button("Save Settings")
-        if submitted:
-            db.update_setting('firm_name', firm_name)
-            db.update_setting('firm_website', firm_website)
-            db.update_setting('executive_summary_template', exec_summary)
-            st.success("Settings saved successfully!")
-
-def show_clients_projects():
-    st.title("Clients & Projects")
-    
-    if st.session_state.get('edit_project_id'):
-        tab1, tab2 = st.tabs(["Manage Projects", "Manage Clients"])
-        projects_tab, clients_tab = tab1, tab2
-    else:
-        tab1, tab2 = st.tabs(["Manage Clients", "Manage Projects"])
-        clients_tab, projects_tab = tab1, tab2
-    
-    with clients_tab:
-        st.subheader("Add New Client")
-        with st.form("add_client"):
-            c_name = st.text_input("Client Name")
-            c_desc = st.text_area("Description")
-            if st.form_submit_button("Add Client") and c_name:
-                db.add_client(c_name, c_desc)
-                st.success(f"Added client: {c_name}")
-                st.rerun()
-                
-        st.subheader("Existing Clients")
-        clients = db.get_clients()
-        for c in clients:
-            with st.expander(c['name']):
-                st.write(c.get('description', 'No description'))
-                if st.button("Delete Client", key=f"del_client_{c['id']}"):
-                    db.delete_client(c['id'])
-                    st.rerun()
-
-    with projects_tab:
-        clients = db.get_clients()
-        if not clients:
-            st.warning("Please create a client first.")
-            return
-
-        client_options = {c['name']: c['id'] for c in clients}
-        PROJECT_TYPES = [
-            "Web Application Penetration Test",
-            "Internal Network Penetration Test",
-            "External Network Penetration Test",
-            "AI/LLM Penetration Test",
-            "Cloud Penetration Test"
-        ]
-        
-        st.subheader("Add New Project")
-        with st.form("add_project"):
-            p_name = st.text_input("Project Name")
-            p_app_name = st.text_input("Application Name (For Cover Page)")
-            p_client = st.selectbox("Client", list(client_options.keys()))
-            p_type = st.selectbox("Project Type", PROJECT_TYPES)
-            col_s, col_e, col_r = st.columns(3)
-            p_start = col_s.date_input("Start Date").strftime('%Y-%m-%d')
-            p_end = col_e.date_input("End Date").strftime('%Y-%m-%d')
-            p_report_date = col_r.date_input("Report Date").strftime('%Y-%m-%d')
             
-            if st.form_submit_button("Add Project") and p_name:
-                settings = db.get_settings()
-                db.add_project(
-                    name=p_name,
-                    application_name=p_app_name, 
-                    client_id=client_options[p_client], 
-                    project_type=p_type,
-                    start_date=p_start, 
-                    end_date=p_end,
-                    report_date=p_report_date,
-                    tester_name=settings.get('tester_name', ''),
-                    tester_description=settings.get('tester_description', ''),
-                    hosts='',
-                    summary_of_strengths=settings.get('summary_of_strengths', ''),
-                    summary_of_weaknesses=settings.get('summary_of_weaknesses', ''),
-                    cvss_mapping=settings.get('cvss_mapping', ''),
-                    tools_used=settings.get('tools_used', '')
-                )
-                st.success(f"Added project: {p_name}")
-                st.rerun()
+    st.subheader(f"Existing Projects for {active_client_name}")
+    projects = db.get_projects()
+    active_client_projects = [p for p in projects if p['client_id'] == active_client_id]
+    
+    if not active_client_projects:
+        st.write("*No projects found for this client.*")
+        
+    for p in active_client_projects:
+        is_expanded = st.session_state.get('edit_project_id') == p['id']
+        with st.expander(f"{p['name']} (Client: {p['client_name']})", expanded=is_expanded):
+            with st.form(f"edit_proj_{p['id']}"):
+                ep_name = st.text_input("Project Name", value=p['name'])
+                ep_app_name = st.text_input("Application Name", value=p.get('application_name', ''))
                 
-        st.subheader("Existing Projects")
-        projects = db.get_projects()
-        for p in projects:
-            is_expanded = st.session_state.get('edit_project_id') == p['id']
-            with st.expander(f"{p['name']} (Client: {p['client_name']})", expanded=is_expanded):
-                with st.form(f"edit_proj_{p['id']}"):
-                    ep_name = st.text_input("Project Name", value=p['name'])
-                    ep_app_name = st.text_input("Application Name", value=p.get('application_name', ''))
+                ep_type_idx = PROJECT_TYPES.index(p.get('project_type', 'Web Application Penetration Test')) if p.get('project_type', 'Web Application Penetration Test') in PROJECT_TYPES else 0
+                ep_type = st.selectbox("Project Type", PROJECT_TYPES, index=ep_type_idx)
+                col_s, col_e, col_r = st.columns(3)
+                ep_start = col_s.text_input("Start Date", value=p.get('start_date', ''))
+                ep_end = col_e.text_input("End Date", value=p.get('end_date', ''))
+                ep_report_date = col_r.text_input("Report Date", value=p.get('report_date', ''))
+                
+                st.markdown("### Report Details")
+                t_name = st.text_input("Tester Name", value=p.get('tester_name', '') or '')
+                t_label = f"{t_name} is ..." if t_name else "[Tester Name] is ..."
+                t_desc = st.text_area(t_label, value=p.get('tester_description', '') or '', placeholder="an offensive security expert with a strong track record of...")
+                p_hosts = st.text_area("Scope / Hosts", value=p.get('hosts', '') or '')
+                s_strengths = st.text_area("Summary of Strengths", value=p.get('summary_of_strengths', '') or '', height=150)
+                s_weaknesses = st.text_area("Summary of Weaknesses", value=p.get('summary_of_weaknesses', '') or '', height=150)
+                
+                st.markdown("#### Tools Used")
+                tools_str = p.get('tools_used', '[]')
+                try:
+                    t_list = json.loads(tools_str)
+                    if not isinstance(t_list, list):
+                        t_list = [{"Name": "Tool", "Description": tools_str}]
+                except Exception:
+                    t_list = [{"Name": "Unknown Tool", "Description": tools_str}] if tools_str else []
                     
-                    ep_type_idx = PROJECT_TYPES.index(p.get('project_type', 'Web Application Penetration Test')) if p.get('project_type', 'Web Application Penetration Test') in PROJECT_TYPES else 0
-                    ep_type = st.selectbox("Project Type", PROJECT_TYPES, index=ep_type_idx)
-                    col_s, col_e, col_r = st.columns(3)
-                    ep_start = col_s.text_input("Start Date", value=p.get('start_date', ''))
-                    ep_end = col_e.text_input("End Date", value=p.get('end_date', ''))
-                    ep_report_date = col_r.text_input("Report Date", value=p.get('report_date', ''))
-                    
-                    st.markdown("### Report Details")
-                    t_name = st.text_input("Tester Name", value=p.get('tester_name', '') or '')
-                    t_label = f"{t_name} is ..." if t_name else "[Tester Name] is ..."
-                    t_desc = st.text_area(t_label, value=p.get('tester_description', '') or '', placeholder="an offensive security expert with a strong track record of...")
-                    p_hosts = st.text_area("Scope / Hosts", value=p.get('hosts', '') or '')
-                    s_strengths = st.text_area("Summary of Strengths", value=p.get('summary_of_strengths', '') or '', height=150)
-                    s_weaknesses = st.text_area("Summary of Weaknesses", value=p.get('summary_of_weaknesses', '') or '', height=150)
-                    
-                    st.markdown("#### Tools Used")
-                    tools_str = p.get('tools_used', '[]')
-                    try:
-                        t_list = json.loads(tools_str)
-                        if not isinstance(t_list, list):
-                            t_list = [{"Name": "Tool", "Description": tools_str}]
-                    except Exception:
-                        t_list = [{"Name": "Unknown Tool", "Description": tools_str}] if tools_str else []
-                        
-                    if not t_list:
-                        t_list = [{"Name": "", "Description": ""}]
-                    
-                    edited_t_list = st.data_editor(
-                        t_list, 
-                        column_config={
-                            "Name": st.column_config.TextColumn("Tool Name", width="medium", required=True),
-                            "Description": st.column_config.TextColumn("Description", width="large", required=True)
-                        },
-                        num_rows="dynamic", 
-                        use_container_width=True, 
-                        key=f"te_{p['id']}"
-                    )
-                    
-                    save_as_default = st.checkbox("Save these report details as Firm Defaults for future projects", key=f"sad_{p['id']}")
-                    
-                    if st.form_submit_button("Save Project details"):
-                        cleaned_t_list = [t for t in edited_t_list if t.get("Name") or t.get("Description")]
-                        t_used_json = json.dumps(cleaned_t_list)
-                        db.update_project(p['id'], ep_name, ep_app_name, ep_type, ep_start, ep_end, ep_report_date, t_name, t_desc, p_hosts, s_strengths, s_weaknesses, p.get('cvss_mapping', ''), t_used_json)
-                        if save_as_default:
-                            db.update_setting('tester_name', t_name)
-                            db.update_setting('tester_description', t_desc)
-                            db.update_setting('summary_of_strengths', s_strengths)
-                            db.update_setting('summary_of_weaknesses', s_weaknesses)
-                            db.update_setting('tools_used', t_used_json)
-                        st.success("Project updated!")
-                        st.rerun()
-
-                if st.button("Delete Project", key=f"del_project_{p['id']}"):
-                    db.delete_project(p['id'])
+                if not t_list:
+                    t_list = [{"Name": "", "Description": ""}]
+                
+                edited_t_list = st.data_editor(
+                    t_list, 
+                    column_config={
+                        "Name": st.column_config.TextColumn("Tool Name", width="medium", required=True),
+                        "Description": st.column_config.TextColumn("Description", width="large", required=True)
+                    },
+                    num_rows="dynamic", 
+                    use_container_width=True, 
+                    key=f"te_{p['id']}"
+                )
+                
+                save_as_default = st.checkbox("Save these report details as Firm Defaults for future projects", key=f"sad_{p['id']}")
+                
+                if st.form_submit_button("Save Project details"):
+                    cleaned_t_list = [t for t in edited_t_list if t.get("Name") or t.get("Description")]
+                    t_used_json = json.dumps(cleaned_t_list)
+                    db.update_project(p['id'], ep_name, ep_app_name, ep_type, ep_start, ep_end, ep_report_date, t_name, t_desc, p_hosts, s_strengths, s_weaknesses, p.get('cvss_mapping', ''), t_used_json)
+                    if save_as_default:
+                        db.update_setting('tester_name', t_name)
+                        db.update_setting('tester_description', t_desc)
+                        db.update_setting('summary_of_strengths', s_strengths)
+                        db.update_setting('summary_of_weaknesses', s_weaknesses)
+                        db.update_setting('tools_used', t_used_json)
+                    st.success("Project updated!")
                     st.rerun()
+
+            if st.button("Delete Project", key=f"del_project_{p['id']}"):
+                db.delete_project(p['id'])
+                st.rerun()
 
 def show_vuln_library():
     st.title("Vulnerability Library")
-    st.write("Manage common vulnerabilities for quick insertion into projects.")
+    st.write("Maintain a centralized repository of common vulnerabilities. You can manually add entries or bulk import CSVs to quickly populate your library, making it easier to pull standardized findings directly into your active projects.")
     
     project_types = [
         "Web Application Penetration Test",
@@ -432,19 +373,75 @@ def show_vuln_library():
                 st.rerun()
 
 def show_manage_findings():
-    st.title("Manage Project Findings")
+    st.title("Add Findings")
+    st.write("Populate your project with specific security findings. You can manually create findings, import standardized issues directly from your Vulnerability Library, or automatically ingest raw XML output from Nessus and Burp Suite scanners.")
     projects = db.get_projects()
+    active_client_id = st.session_state.get('active_client_id')
+    if active_client_id:
+        projects = [p for p in projects if p['client_id'] == active_client_id]
+        
     if not projects:
-        st.warning("Please create a project first.")
+        st.warning("Please create a project for the active client first.")
         return
         
-    project_options = {p['name']: p['id'] for p in projects}
-    selected_project = st.selectbox("Select Project to manage findings", list(project_options.keys()))
+    project_options = {f"{p['name']} (Client: {p['client_name']})": p['id'] for p in projects}
+    project_options_list = list(project_options.keys())
+    default_index = 0
+    if 'manage_findings_project_id' in st.session_state:
+        for i, p_name in enumerate(project_options_list):
+            if project_options[p_name] == st.session_state.manage_findings_project_id:
+                default_index = i
+                break
+                
+    selected_project = st.selectbox("Select Project to manage findings", project_options_list, index=default_index)
     project_id = project_options[selected_project]
     
     active_project = next((p for p in projects if p['id'] == project_id), None)
     is_web_app = active_project and active_project.get('project_type') == 'Web Application Penetration Test'
     
+    st.divider()
+    st.subheader("Current Project Findings")
+    findings = db.get_project_findings(project_id)
+    if findings:
+        for f in findings:
+            with st.expander(f"[{f['severity']}] {f['title']} (Host: {f.get('host', 'N/A')})"):
+                with st.form(f"edit_form_{f['id']}"):
+                    e_title = st.text_input("Title", value=f['title'])
+                    
+                    e_sev_options = ["Critical", "High", "Medium", "Low", "Info"]
+                    e_sev_index = e_sev_options.index(f['severity']) if f['severity'] in e_sev_options else 4
+                    e_sev = st.selectbox("Severity", e_sev_options, index=e_sev_index)
+                    
+                    col_h, col_p = st.columns(2)
+                    e_host = col_h.text_input("Host", value=f.get('host', ''))
+                    if is_web_app:
+                        e_path = col_p.text_input("Affected Path", value=f.get('path', ''))
+                    else:
+                        e_path = f.get('path', '')
+                    
+                    col_c, col_v = st.columns(2)
+                    e_cvss = col_c.number_input("CVSS", min_value=0.0, max_value=10.0, step=0.1, value=float(f.get('cvss', 0.0)))
+                    e_cvss_vector = col_v.text_input("CVSSv4 Vector String", value=f.get('cvss_vector', ''))
+                    
+                    e_desc = st.text_area("Description", value=f.get('description', ''))
+                    e_rem = st.text_area("Remediation", value=f.get('remediation', ''))
+                    e_refs = st.text_area("References (one URL per line)", value=f.get('refs', ''))
+                    
+                    st.markdown("**Steps to Reproduce & PoC**")
+                    jodit_config = {"theme": "dark", "style": {"background": "#0e1117", "color": "#ffffff"}, "height": 400, "uploader": {"insertImageAsBase64URI": True}}
+                    e_steps = st_jodit(value=f.get('steps_to_reproduce', ''), config=jodit_config, key=f"e_steps_{f['id']}")
+                    
+                    if st.form_submit_button("Save Changes"):
+                        db.update_project_finding(f['id'], e_title, e_sev, e_desc, e_rem, e_cvss, e_host, e_path, e_cvss_vector, e_refs, e_steps)
+                        st.success("Saved!")
+                        st.rerun()
+                
+                if st.button("Delete Finding", key=f"del_find_{f['id']}"):
+                    db.delete_project_finding(f['id'])
+                    st.rerun()
+    else:
+        st.write("No findings yet.")
+
     st.divider()
     col1, col2 = st.columns(2)
     
@@ -558,58 +555,21 @@ def show_manage_findings():
                 st.success("Added finding.")
                 st.rerun()
 
-    st.divider()
-    st.subheader("Current Project Findings")
-    findings = db.get_project_findings(project_id)
-    if findings:
-        for f in findings:
-            with st.expander(f"[{f['severity']}] {f['title']} (Host: {f.get('host', 'N/A')})"):
-                with st.form(f"edit_form_{f['id']}"):
-                    e_title = st.text_input("Title", value=f['title'])
-                    
-                    e_sev_options = ["Critical", "High", "Medium", "Low", "Info"]
-                    e_sev_index = e_sev_options.index(f['severity']) if f['severity'] in e_sev_options else 4
-                    e_sev = st.selectbox("Severity", e_sev_options, index=e_sev_index)
-                    
-                    col_h, col_p = st.columns(2)
-                    e_host = col_h.text_input("Host", value=f.get('host', ''))
-                    if is_web_app:
-                        e_path = col_p.text_input("Affected Path", value=f.get('path', ''))
-                    else:
-                        e_path = f.get('path', '')
-                    
-                    col_c, col_v = st.columns(2)
-                    e_cvss = col_c.number_input("CVSS", min_value=0.0, max_value=10.0, step=0.1, value=float(f.get('cvss', 0.0)))
-                    e_cvss_vector = col_v.text_input("CVSSv4 Vector String", value=f.get('cvss_vector', ''))
-                    
-                    e_desc = st.text_area("Description", value=f.get('description', ''))
-                    e_rem = st.text_area("Remediation", value=f.get('remediation', ''))
-                    e_refs = st.text_area("References (one URL per line)", value=f.get('refs', ''))
-                    
-                    st.markdown("**Steps to Reproduce & PoC**")
-                    jodit_config = {"theme": "dark", "style": {"background": "#0e1117", "color": "#ffffff"}, "height": 400, "uploader": {"insertImageAsBase64URI": True}}
-                    e_steps = st_jodit(value=f.get('steps_to_reproduce', ''), config=jodit_config, key=f"e_steps_{f['id']}")
-                    
-                    if st.form_submit_button("Save Changes"):
-                        db.update_project_finding(f['id'], e_title, e_sev, e_desc, e_rem, e_cvss, e_host, e_path, e_cvss_vector, e_refs, e_steps)
-                        st.success("Saved!")
-                        st.rerun()
-                
-                if st.button("Delete Finding", key=f"del_find_{f['id']}"):
-                    db.delete_project_finding(f['id'])
-                    st.rerun()
-    else:
-        st.write("No findings yet.")
 
 def show_generate_report():
     st.title("Generate Report")
+    st.write("Compile all your project data and findings into a polished, professional PDF report. Select your active project below, verify the findings count, and click generate to produce the final deliverable.")
     
     projects = db.get_projects()
+    active_client_id = st.session_state.get('active_client_id')
+    if active_client_id:
+        projects = [p for p in projects if p['client_id'] == active_client_id]
+        
     if not projects:
-        st.warning("Please create a project first.")
+        st.warning("Please create a project for the active client first.")
         return
         
-    project_options = {p['name']: p for p in projects}
+    project_options = {f"{p['name']} (Client: {p['client_name']})": p for p in projects}
     selected_pname = st.selectbox("Select Project for Report", list(project_options.keys()))
     project = project_options[selected_pname]
     
@@ -641,6 +601,66 @@ def show_generate_report():
                         )
                 except Exception as e:
                     st.error(f"Failed to generate report: {e}")
+
+
+
+def show_templates():
+    st.title("Report Templates")
+    st.write("Customize the Markdown report template used for each specific assessment type.")
+    
+    project_types = [
+        "Web Application Penetration Test",
+        "Internal Network Penetration Test",
+        "External Network Penetration Test",
+        "AI/LLM Penetration Test",
+        "Cloud Penetration Test"
+    ]
+    
+    selected_type = st.selectbox("Select Project Type to Edit", project_types)
+    safe_type = selected_type.replace(' ', '_').replace('/', '_')
+    
+    template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+    custom_template_path = os.path.join(template_dir, f'report_template_{safe_type}.md')
+    default_template_path = os.path.join(template_dir, 'report_template.md')
+    
+    is_custom = os.path.exists(custom_template_path)
+    if is_custom:
+        st.info(f"Editing custom template for: **{selected_type}**")
+        path_to_read = custom_template_path
+    else:
+        st.info(f"No custom template found for **{selected_type}**. Displaying the default template.")
+        path_to_read = default_template_path
+        
+    try:
+        with open(path_to_read, 'r', encoding='utf-8') as f:
+            template_content = f.read()
+    except Exception as e:
+        st.error(f"Error reading template: {e}")
+        return
+        
+    with st.form("edit_template_form"):
+        edited_content = st.text_area("Template Content (Markdown)", value=template_content, height=800)
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            if st.form_submit_button("Save Template"):
+                try:
+                    with open(custom_template_path, 'w', encoding='utf-8') as f:
+                        f.write(edited_content)
+                    st.success(f"Custom template saved for {selected_type}!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to save template: {e}")
+                    
+        with col2:
+            if is_custom:
+                if st.form_submit_button("Reset to Default (Delete Custom)"):
+                    try:
+                        os.remove(custom_template_path)
+                        st.success(f"Custom template deleted for {selected_type}. Reverted to default.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to delete template: {e}")
 
 if __name__ == "__main__":
     main()

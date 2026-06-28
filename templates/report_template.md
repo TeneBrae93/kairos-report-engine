@@ -221,6 +221,8 @@ configuration details that don't pose a vulnerability on their own but are noted
 
 {{ project.findings_chart }}
 
+<div style="page-break-before: always;"></div>
+
 # Detailed Findings
 
 {{ findings.detailed_findings }}
