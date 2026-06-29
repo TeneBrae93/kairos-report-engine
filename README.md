@@ -1,10 +1,9 @@
 # Kairos Report Engine
 
-### Security Warning
 **This application is currently in early development (prototype stage).**
 A formal security assessment is still ongoing. You should only run this application locally or on a trusted, secure network. **It MUST NOT be exposed to the public internet.**
 
-### Kairos Report Engine
+## Kairos Report Engine
 Kairos Report Engine is a web application designed to streamline penetration testing project management, vulnerability tracking, and automated report generation. 
 
 It provides a centralized dashboard to track clients, manage projects across various service types (e.g., Web Application, Internal Network, Cloud), maintain a global vulnerability library, and automatically generate professional, well-formatted PDF reports and Attestation Letters.
