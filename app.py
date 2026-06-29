@@ -640,6 +640,9 @@ def show_generate_report():
     findings = db.get_project_findings(project['id'])
     st.write(f"Total findings for this project: {len(findings)}")
     
+    output_dir = "reports"
+    out_filename = f"{output_dir}/report_{project['id']}.pdf"
+    
     if st.button("Generate PDF Report"):
         if not findings:
             st.error("No findings to report. Please add findings first.")
@@ -649,22 +652,29 @@ def show_generate_report():
                 client = next((c for c in clients if c['id'] == project['client_id']), None)
                 firm = db.get_settings()
                 
-                output_dir = "reports"
-                out_filename = f"{output_dir}/report_{project['id']}.pdf"
-                
                 try:
                     generate_report(project, client, firm, findings, out_filename)
                     st.success("Report generated successfully!")
-                    
-                    with open(out_filename, "rb") as pdf_file:
-                        btn = st.download_button(
-                            label="Download PDF",
-                            data=pdf_file,
-                            file_name=f"Kairos_Report_{project['name'].replace(' ', '_')}.pdf",
-                            mime="application/pdf"
-                        )
                 except Exception as e:
                     st.error(f"Failed to generate report: {e}")
+                    
+    import os
+    if os.path.exists(out_filename):
+        with open(out_filename, "rb") as pdf_file:
+            pdf_data = pdf_file.read()
+            
+            st.download_button(
+                label="Download PDF",
+                data=pdf_data,
+                file_name=f"Kairos_Report_{project['name'].replace(' ', '_')}.pdf",
+                mime="application/pdf"
+            )
+        
+        with st.expander("Preview Report"):
+            import base64
+            base64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+            pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800px" type="application/pdf"></iframe>'
+            st.markdown(pdf_display, unsafe_allow_html=True)
 
 
 
