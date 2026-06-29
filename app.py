@@ -505,10 +505,9 @@ def show_manage_findings():
         st.write("No findings yet.")
 
     st.divider()
-    col1, col2 = st.columns(2)
+    st.divider()
     
-    with col1:
-        st.subheader("Import from Library")
+    with st.expander("Import from Library"):
         lib = db.get_vuln_library()
         
         # Intelligently filter the library to only show vulnerabilities relevant to the current project's type
@@ -547,9 +546,7 @@ def show_manage_findings():
                     st.success("Imported finding from library.")
                     st.rerun()
 
-        st.divider()
-
-        st.subheader("Import Scanner Output")
+    with st.expander("Import Scanner Output"):
         import_type = st.radio("Select Tool", ["Nessus", "Burp Suite"], horizontal=True)
         
         if import_type == "Nessus":
@@ -590,33 +587,37 @@ def show_manage_findings():
                     if os.path.exists(temp_path):
                         os.remove(temp_path)
 
-    with col2:
-        st.subheader("Add Manual Finding")
-        with st.form("add_manual_finding"):
-            mf_title = st.text_input("Title")
-            mf_sev = st.selectbox("Severity", ["Critical", "High", "Medium", "Low", "Info"])
-            col_h, col_p = st.columns(2)
-            mf_host = col_h.text_input("Host")
-            if is_web_app:
-                mf_path = col_p.text_input("Affected Path (e.g. /admin)")
-            else:
-                mf_path = ""
-            
-            col_c, col_v = st.columns(2)
-            mf_cvss = col_c.number_input("CVSS", min_value=0.0, max_value=10.0, step=0.1)
-            mf_cvss_vector = col_v.text_input("CVSSv4 Vector String")
-            
-            mf_desc = st.text_area("Description")
-            st.markdown("**Steps to Reproduce**")
-            jodit_config = {"theme": "dark", "style": {"background": "#0e1117", "color": "#ffffff"}, "placeholder": "Write your steps to reproduce here (you can paste images)...", "height": 400, "uploader": {"insertImageAsBase64URI": True}}
-            mf_steps = st_jodit(value="", config=jodit_config, key="mf_steps_add")
-            mf_rem = st.text_area("Remediation")
-            mf_refs = st.text_area("References (one URL per line)")
-            if st.form_submit_button("Add Finding") and mf_title:
-                processed_mf_steps = process_base64_images(mf_steps, active_project['client_id'], project_id)
-                db.add_project_finding(project_id, mf_title, mf_sev, mf_desc, mf_rem, mf_cvss, mf_host, mf_path, mf_cvss_vector, mf_refs, processed_mf_steps)
-                st.success("Added finding.")
-                st.rerun()
+    st.divider()
+    if 'add_finding_key' not in st.session_state:
+        st.session_state.add_finding_key = 0
+
+    st.subheader("Add Manual Finding")
+    with st.form(f"add_manual_finding_{st.session_state.add_finding_key}"):
+        mf_title = st.text_input("Title")
+        mf_sev = st.selectbox("Severity", ["Critical", "High", "Medium", "Low", "Info"])
+        col_h, col_p = st.columns(2)
+        mf_host = col_h.text_input("Host")
+        if is_web_app:
+            mf_path = col_p.text_input("Affected Path (e.g. /admin)")
+        else:
+            mf_path = ""
+        
+        col_c, col_v = st.columns(2)
+        mf_cvss = col_c.number_input("CVSS", min_value=0.0, max_value=10.0, step=0.1)
+        mf_cvss_vector = col_v.text_input("CVSSv4 Vector String")
+        
+        mf_desc = st.text_area("Description")
+        st.markdown("**Steps to Reproduce**")
+        jodit_config = {"theme": "dark", "style": {"background": "#0e1117", "color": "#ffffff"}, "placeholder": "Write your steps to reproduce here (you can paste images)...", "height": 400, "uploader": {"insertImageAsBase64URI": True}}
+        mf_steps = st_jodit(value="", config=jodit_config, key=f"mf_steps_add_{st.session_state.add_finding_key}")
+        mf_rem = st.text_area("Remediation")
+        mf_refs = st.text_area("References (one URL per line)")
+        if st.form_submit_button("Add Finding") and mf_title:
+            processed_mf_steps = process_base64_images(mf_steps, active_project['client_id'], project_id)
+            db.add_project_finding(project_id, mf_title, mf_sev, mf_desc, mf_rem, mf_cvss, mf_host, mf_path, mf_cvss_vector, mf_refs, processed_mf_steps)
+            st.success("Added finding.")
+            st.session_state.add_finding_key += 1
+            st.rerun()
 
 
 def show_generate_report():
@@ -768,7 +769,8 @@ def show_login():
             if st.form_submit_button("Verify"):
                 user = get_user(st.session_state.mfa_user)
                 totp = pyotp.TOTP(user['mfa_secret'])
-                if totp.verify(token):
+                token_clean = token.replace(" ", "")
+                if totp.verify(token_clean, valid_window=1):
                     st.session_state.logged_in = True
                     st.session_state.username = user['username']
                     del st.session_state.mfa_user
@@ -849,7 +851,8 @@ def show_profile():
                 code = st.text_input("Enter 6-digit code to verify")
                 if st.form_submit_button("Verify and Enable"):
                     totp = pyotp.TOTP(secret)
-                    if totp.verify(code):
+                    code_clean = code.replace(" ", "")
+                    if totp.verify(code_clean, valid_window=1):
                         update_user_mfa(st.session_state.username, secret, True)
                         del st.session_state.mfa_setup_secret
                         st.success("MFA Successfully Enabled!")

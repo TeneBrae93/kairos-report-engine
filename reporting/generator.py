@@ -164,7 +164,7 @@ def generate_report(project, client, firm, findings, output_path):
 <div style="page-break-before: always;"></div>
 {% endif %}
 
-<div style="page-break-inside: avoid;">
+<div style="page-break-inside: avoid;" markdown="1">
 ### <a name="{{ finding.title | lower | replace(' ', '-') | replace('(', '') | replace(')', '') }}"></a>{{ finding.title }}
 
 <div style="margin-bottom: 10px;">
@@ -184,15 +184,15 @@ def generate_report(project, client, firm, findings, output_path):
 
 {{ finding.description }}
 
+<div style="page-break-after: avoid; font-weight: bold; margin-bottom: 10px; margin-top: 20px;">Remediation:</div>
+
+{{ finding.remediation }}
+
 {% if finding.steps_to_reproduce %}
 <div style="page-break-after: avoid; font-weight: bold; margin-bottom: 10px; margin-top: 20px;">Steps to Reproduce:</div>
 
 <div class="markdown-content">{{ finding.steps_html | safe }}</div>
 {% endif %}
-
-<div style="page-break-after: avoid; font-weight: bold; margin-bottom: 10px; margin-top: 20px;">Remediation:</div>
-
-{{ finding.remediation }}
 
 {% if finding.refs %}
 <div style="page-break-after: avoid; font-weight: bold; margin-bottom: 10px; margin-top: 20px;">References:</div>
