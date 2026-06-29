@@ -27,3 +27,18 @@ reports/*
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# LLMs
+*gemini*.[mM][dD]
+*gemini*.[tT][xX][tT]
+*chatgpt*.[mM][dD]
+*gpt*.[mM][dD]
+*claude*.[mM][dD]
+*copilot*.[mM][dD]
+*llm_output*.*
+*ai_response*.*
+*prompt*.[mM][dD]
+*prompts*.[tT][xX][tT]
+.ai/
+llm_chats/
+ai_outputs/
