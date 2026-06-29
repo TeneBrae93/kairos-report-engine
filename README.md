@@ -10,13 +10,12 @@ It provides a centralized dashboard to track clients, manage projects across var
 
 ## Key Features
 
-- **Project Management**: Create and manage clients and penetration testing projects. Contextually switch between clients and pick up where you left off.
-- **Secure Authentication**: Built-in User Management, Passphrase Hashing (Argon2), and Multi-Factor Authentication (TOTP via Google Authenticator/Authy).
-- **Dynamic Methodologies**: Automatically injects tailored methodologies and boilerplates based on the selected project type.
-- **Vulnerability Library**: Maintain a global library of common vulnerabilities with support for bulk CSV import/export.
-- **Finding Imports**: Seamlessly parse and import scanner outputs from Nessus (.nessus) and Burp Suite (XML).
-- **Rich Text Editor**: Utilize a built-in rich text editor for writing comprehensive "Steps to Reproduce" and embedding proof-of-concept images.
 - **PDF Generation**: Export highly customized, professional PDF reports and formal Attestation Letters powered by Jinja2 and WeasyPrint.
+
+- **Rich Text Editor**: Utilize a built-in rich text editor for writing comprehensive "Steps to Reproduce" and embedding proof-of-concept images.
+- **Finding Imports**: Seamlessly parse and import scanner outputs from Nessus (.nessus) and Burp Suite (XML).
+- **Secure Authentication**: Built-in User Management, Passphrase Hashing (Argon2), and Multi-Factor Authentication (TOTP via Google Authenticator/Authy).
+- **Vulnerability Library**: Maintain a global library of common vulnerabilities with support for bulk CSV import/export.
 - **Production Ready**: Ships with a utility to generate SSL certificates and runs securely on HTTPS port 443 with Streamlit telemetry and dev tools disabled.
 
 ## Prerequisites
