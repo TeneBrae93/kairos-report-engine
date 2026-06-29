@@ -32,40 +32,6 @@ def show_manage_projects():
         for t in testers:
             tester_options[t['name']] = t
             
-    st.subheader("Add New Project")
-    with st.form("add_project"):
-        p_name = st.text_input("Project Name")
-        p_app_name = st.text_input("Application Name (For Cover Page)")
-        st.info(f"Adding new project for **{active_client_name}**")
-        p_type = st.selectbox("Project Type", PROJECT_TYPES)
-        p_tester = st.selectbox("Assigned Tester", list(tester_options.keys()))
-        col_s, col_e, col_r = st.columns(3)
-        p_start = col_s.date_input("Start Date").strftime('%Y-%m-%d')
-        p_end = col_e.date_input("End Date").strftime('%Y-%m-%d')
-        p_report_date = col_r.date_input("Report Date").strftime('%Y-%m-%d')
-        
-        if st.form_submit_button("Add Project") and p_name:
-            settings = db.get_settings()
-            selected_tester = tester_options[p_tester]
-            db.add_project(
-                name=p_name,
-                application_name=p_app_name, 
-                client_id=active_client_id, 
-                project_type=p_type,
-                start_date=p_start, 
-                end_date=p_end,
-                report_date=p_report_date,
-                tester_name=selected_tester['name'],
-                tester_description=selected_tester['bio'],
-                hosts='',
-                summary_of_strengths=settings.get('summary_of_strengths', ''),
-                summary_of_weaknesses=settings.get('summary_of_weaknesses', ''),
-                cvss_mapping=settings.get('cvss_mapping', ''),
-                tools_used=settings.get('tools_used', '')
-            )
-            st.success(f"Added project: {p_name}")
-            st.rerun()
-            
     st.subheader(f"Existing Projects for {active_client_name}")
     projects = db.get_projects()
     active_client_projects = [p for p in projects if p['client_id'] == active_client_id]
@@ -139,3 +105,38 @@ def show_manage_projects():
             if st.button("Delete Project", key=f"del_project_{p['id']}"):
                 db.delete_project(p['id'])
                 st.rerun()
+                
+    st.divider()
+    st.subheader("Add New Project")
+    with st.form("add_project"):
+        p_name = st.text_input("Project Name")
+        p_app_name = st.text_input("Application Name (For Cover Page)")
+        st.info(f"Adding new project for **{active_client_name}**")
+        p_type = st.selectbox("Project Type", PROJECT_TYPES)
+        p_tester = st.selectbox("Assigned Tester", list(tester_options.keys()))
+        col_s, col_e, col_r = st.columns(3)
+        p_start = col_s.date_input("Start Date").strftime('%Y-%m-%d')
+        p_end = col_e.date_input("End Date").strftime('%Y-%m-%d')
+        p_report_date = col_r.date_input("Report Date").strftime('%Y-%m-%d')
+        
+        if st.form_submit_button("Add Project") and p_name:
+            settings = db.get_settings()
+            selected_tester = tester_options[p_tester]
+            db.add_project(
+                name=p_name,
+                application_name=p_app_name, 
+                client_id=active_client_id, 
+                project_type=p_type,
+                start_date=p_start, 
+                end_date=p_end,
+                report_date=p_report_date,
+                tester_name=selected_tester['name'],
+                tester_description=selected_tester['bio'],
+                hosts='',
+                summary_of_strengths=settings.get('summary_of_strengths', ''),
+                summary_of_weaknesses=settings.get('summary_of_weaknesses', ''),
+                cvss_mapping=settings.get('cvss_mapping', ''),
+                tools_used=settings.get('tools_used', '')
+            )
+            st.success(f"Added project: {p_name}")
+            st.rerun()
