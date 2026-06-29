@@ -70,3 +70,14 @@ This will start the local Streamlit server. Navigate your web browser to `https:
 ## Database Note
 
 The application uses a local SQLite database (`data/kairos.db`). On the first run, the database and necessary tables will be created automatically.
+
+## License
+
+This project is released under a custom **Non-Commercial Share-Alike License**. 
+
+In summary:
+- You are completely free to use, modify, and distribute the code.
+- You **cannot** use this code for the purpose of re-selling or hosting it as a paid commercial service.
+- It **must** remain completely open source, and any derivative works must also be released under these exact same terms.
+
+See the [LICENSE](LICENSE) file for the full terms.
