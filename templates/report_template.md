@@ -162,6 +162,7 @@ summarized below:
 ## Summary of Findings
 A total of {{ findings|length }} issues were identified during this assessment. Risk ratings were assigned based on their Common Vulnerability Scoring System (CVSS) base score using the following mapping. 
 
+<div style="page-break-inside: avoid;">
 <table style="width: 60%; margin: 20px auto; border-collapse: collapse; text-align: left; border: 1px solid #333;">
   <thead>
     <tr>
@@ -192,6 +193,7 @@ A total of {{ findings|length }} issues were identified during this assessment. 
     </tr>
   </tbody>
 </table>
+</div>
 
 **Critical**<br>
 Direct, immediate, and comprehensive compromise. Exploitation could lead to complete system

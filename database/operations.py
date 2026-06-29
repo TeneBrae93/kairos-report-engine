@@ -142,3 +142,47 @@ def delete_project_finding(finding_id: int):
     cursor.execute("DELETE FROM project_findings WHERE id = ?", (finding_id,))
     conn.commit()
     conn.close()
+
+# --- Testers ---
+def get_testers():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM testers")
+    testers = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return testers
+
+def add_tester(name, title, bio):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO testers (name, title, bio) VALUES (?, ?, ?)", (name, title, bio))
+    conn.commit()
+    conn.close()
+
+def delete_tester(tester_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM testers WHERE id = ?", (tester_id,))
+    conn.commit()
+    conn.close()
+
+def update_tester(tester_id, name, title, bio):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE testers SET name = ?, title = ?, bio = ? WHERE id = ?", (name, title, bio, tester_id))
+    conn.commit()
+    conn.close()
+
+def get_client_with_most_recent_finding():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT p.client_id
+        FROM project_findings f
+        JOIN projects p ON f.project_id = p.id
+        ORDER BY f.id DESC
+        LIMIT 1
+    """)
+    row = cursor.fetchone()
+    conn.close()
+    return row['client_id'] if row else None

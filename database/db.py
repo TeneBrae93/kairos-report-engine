@@ -37,6 +37,16 @@ def init_db():
     cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('firm_name', 'Default Firm')")
     cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('executive_summary_template', 'This executive summary provides an overview of the engagement...')")
 
+    # Create Testers Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS testers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            title TEXT,
+            bio TEXT
+        )
+    ''')
+
     # Create Clients Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS clients (
@@ -102,6 +112,12 @@ def init_db():
             FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
         )
     ''')
+
+    # Ensure 'title' column exists in 'testers' table (Migration)
+    cursor.execute("PRAGMA table_info(testers)")
+    tester_columns = [col['name'] for col in cursor.fetchall()]
+    if 'title' not in tester_columns:
+        cursor.execute("ALTER TABLE testers ADD COLUMN title TEXT")
 
     # Migration: Add steps_to_reproduce if it doesn't exist
     try:
@@ -190,7 +206,6 @@ def update_user_mfa(username, mfa_secret, mfa_enabled):
     cursor.execute("UPDATE users SET mfa_secret = ?, mfa_enabled = ? WHERE username = ?", (mfa_secret, mfa_enabled, username))
     conn.commit()
     conn.close()
-
 
 if __name__ == '__main__':
     init_db()

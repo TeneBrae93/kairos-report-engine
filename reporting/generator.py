@@ -69,7 +69,8 @@ def generate_report(project, client, firm, findings, output_path):
             
             finding['steps_html'] = markdown.markdown(finding.get('steps_to_reproduce') or '', extensions=['fenced_code', 'tables', 'md_in_html', 'toc', 'attr_list'])
 
-        table_html = '<table style="width: 100%; border-collapse: collapse; border: 1px solid #333;">\n'
+        table_html = '<div style="page-break-inside: avoid; margin-bottom: 20px;">\n'
+        table_html += '<table style="width: 100%; border-collapse: collapse; border: 1px solid #333;">\n'
         table_html += '  <thead>\n'
         table_html += '    <tr>\n'
         table_html += '      <th style="border: 1px solid #333; background-color: #555; color: white; padding: 10px; font-weight: bold; width: 40%; text-align: center;">Finding</th>\n'
@@ -109,7 +110,7 @@ def generate_report(project, client, firm, findings, output_path):
             table_html += f'      <td style="border: 1px solid #333; padding: 10px; text-align: center; color: #fff; background-color: #2c3e50;">{host_html}</td>\n'
             table_html += f'    </tr>\n'
             
-        table_html += '  </tbody>\n</table>'
+        table_html += '  </tbody>\n</table>\n</div>'
         
         md_content = md_content.replace('{{ findings.table }}', table_html)
         
@@ -222,17 +223,23 @@ def generate_report(project, client, firm, findings, output_path):
             'description': project.get('tester_description', '')
         }
         
+        from database import operations as db
+        for t in db.get_testers():
+            if t['name'] == tester['name']:
+                tester['description'] = t['bio']
+                break
+        
         import json
         tools_str = project.get('tools_used', '[]')
         try:
             tools_list = json.loads(tools_str)
             if tools_list and isinstance(tools_list, list):
-                tools_html = "<table class=\"tools-table\">\n<tr><th>Tool</th><th>Description</th></tr>\n"
+                tools_html = "<div style=\"page-break-inside: avoid;\">\n<table class=\"tools-table\">\n<tr><th>Tool</th><th>Description</th></tr>\n"
                 for t in tools_list:
                     name = t.get('Name', '')
                     desc = t.get('Description', '').replace('\n', '<br>')
                     tools_html += f"<tr><td>{name}</td><td>{desc}</td></tr>\n"
-                tools_html += "</table>"
+                tools_html += "</table>\n</div>"
                 project['tools_used_table'] = tools_html
             else:
                 project['tools_used_table'] = tools_str.replace('\n', '<br>')
@@ -263,4 +270,61 @@ def generate_report(project, client, firm, findings, output_path):
         return True
     except Exception as e:
         logger.error(f"Failed to generate report: {e}")
+        raise
+
+def generate_attestation(project, client, firm, output_path, custom_bio=None):
+    """
+    Generates an Attestation Letter PDF.
+    """
+    try:
+        template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
+        md_template_path = os.path.join(template_dir, 'attestation_template.md')
+        
+        with open(md_template_path, 'r', encoding='utf-8') as f:
+            md_content = f.read()
+
+        project['report_date_formatted'] = format_date_with_suffix(project.get('report_date', ''))
+        project['start_date_formatted'] = format_date_with_suffix(project.get('start_date', ''))
+        project['end_date_formatted'] = format_date_with_suffix(project.get('end_date', ''))
+
+        firm_dict = {f.get('key'): f.get('value') for f in firm} if isinstance(firm, list) else firm
+
+        from database import operations as db
+        tester = {
+            'name': project.get('tester_name', ''),
+            'description': project.get('tester_description', ''),
+            'title': ''
+        }
+        if tester['name']:
+            db_testers = db.get_testers()
+            db_tester = next((t for t in db_testers if t['name'] == tester['name']), None)
+            if db_tester:
+                tester['description'] = custom_bio if custom_bio is not None else db_tester.get('bio', '')
+                tester['title'] = db_tester.get('title', '')
+                
+        env = Environment()
+        template = env.from_string(md_content)
+        
+        rendered_md = template.render(
+            project=project,
+            client=client,
+            firm=firm_dict,
+            tester=tester
+        )
+        
+        report_html_body = markdown.markdown(rendered_md, extensions=['fenced_code', 'tables', 'md_in_html', 'attr_list'])
+        
+        html_env = Environment(loader=FileSystemLoader(template_dir))
+        html_template = html_env.get_template('attestation_wrapper.html')
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        
+        final_html = html_template.render(content=report_html_body, firm=firm_dict, project=project, client=client, base_dir=project_root)
+
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        HTML(string=final_html, base_url=project_root).write_pdf(output_path)
+        
+        logger.info(f"Successfully generated Attestation Letter at {output_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to generate attestation: {e}")
         raise

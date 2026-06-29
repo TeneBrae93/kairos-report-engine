@@ -1,11 +1,12 @@
 import streamlit as st
+st.set_page_config(page_title="Kairos Report Engine", page_icon="assets/KairosSecLogo.png", layout="wide")
 import os
 import uuid
 from database.db import init_db, get_user_count, add_user, get_user, update_user_mfa
 from database import operations as db
 from parsers.nessus import parse_nessus
 from parsers.burp import parse_burp
-from reporting.generator import generate_report
+from reporting.generator import generate_report, generate_attestation
 from streamlit_jodit import st_jodit
 import json
 import csv
@@ -16,8 +17,10 @@ import pyotp
 import qrcode
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
+from streamlit_cookies_controller import CookieController
 
 ph = PasswordHasher()
+cookie_controller = CookieController()
 
 def get_image_base64(path):
     with open(path, "rb") as image_file:
@@ -52,9 +55,20 @@ def process_base64_images(html_content, client_id, project_id):
 # Initialize DB on first run
 init_db()
 
-st.set_page_config(page_title="Kairos Report Engine", page_icon="assets/KairosSecLogo.png", layout="wide")
-
 def main():
+    if st.session_state.get('trigger_logout'):
+        cookie_controller.remove('kairos_auth_token')
+        st.session_state.clear()
+        st.session_state.logged_out = True
+        st.info("Securely logging you out...")
+        st.markdown('<meta http-equiv="refresh" content="1">', unsafe_allow_html=True)
+        return
+
+    auth_token = cookie_controller.get('kairos_auth_token')
+    if auth_token and not st.session_state.get('logged_in') and not st.session_state.get('logged_out'):
+        st.session_state.logged_in = True
+        st.session_state.username = auth_token
+        
     if not st.session_state.get('logged_in'):
         if get_user_count() == 0:
             show_setup()
@@ -73,7 +87,7 @@ def main():
     choice = st.sidebar.radio("Navigation", menu, index=menu.index(st.session_state.nav))
     if choice != st.session_state.nav:
         if choice == "Logout":
-            st.session_state.clear()
+            st.session_state.trigger_logout = True
             st.rerun()
         else:
             st.session_state.nav = choice
@@ -129,6 +143,11 @@ def show_dashboard():
         client_options = {c['name']: c['id'] for c in clients}
         client_options_list = list(client_options.keys())
         default_index = 0
+        if 'active_client_id' not in st.session_state:
+            recent_client = db.get_client_with_most_recent_finding()
+            if recent_client:
+                st.session_state.active_client_id = recent_client
+                
         if 'active_client_id' in st.session_state:
             for i, c_name in enumerate(client_options_list):
                 if client_options[c_name] == st.session_state.active_client_id:
@@ -172,6 +191,37 @@ def show_dashboard():
             st.success("Firm Settings updated!")
             st.rerun()
 
+    st.subheader("Testing Team")
+    testers = db.get_testers()
+    if testers:
+        for t in testers:
+            with st.expander(f"**{t['name']}**"):
+                with st.form(f"edit_tester_{t['id']}"):
+                    col_t1, col_t2 = st.columns(2)
+                    e_t_name = col_t1.text_input("Name", value=t['name'])
+                    e_t_title = col_t2.text_input("Title", value=t.get('title', ''))
+                    e_t_bio = st.text_area("Bio/Qualifications", value=t['bio'])
+                    if st.form_submit_button("Save Changes"):
+                        db.update_tester(t['id'], e_t_name, e_t_title, e_t_bio)
+                        st.success("Tester updated.")
+                        st.rerun()
+                if st.button("Delete Tester", key=f"del_tester_{t['id']}"):
+                    db.delete_tester(t['id'])
+                    st.rerun()
+    else:
+        st.write("No testers added yet.")
+        
+    with st.expander("Add New Tester"):
+        with st.form("add_tester"):
+            col_t1, col_t2 = st.columns(2)
+            t_name = col_t1.text_input("Name")
+            t_title = col_t2.text_input("Title")
+            t_bio = st.text_area("Bio/Qualifications")
+            if st.form_submit_button("Add Tester") and t_name:
+                db.add_tester(t_name, t_title, t_bio)
+                st.success("Added tester.")
+                st.rerun()
+
     st.divider()
     st.subheader("Data Management")
     st.write("Export your entire local database and project assets to a portable ZIP file.")
@@ -210,12 +260,19 @@ def show_manage_projects():
         "Cloud Penetration Test"
     ]
     
+    testers = db.get_testers()
+    tester_options = {"No Tester": {"name": "", "bio": ""}}
+    if testers:
+        for t in testers:
+            tester_options[t['name']] = t
+            
     st.subheader("Add New Project")
     with st.form("add_project"):
         p_name = st.text_input("Project Name")
         p_app_name = st.text_input("Application Name (For Cover Page)")
         st.info(f"Adding new project for **{active_client_name}**")
         p_type = st.selectbox("Project Type", PROJECT_TYPES)
+        p_tester = st.selectbox("Assigned Tester", list(tester_options.keys()))
         col_s, col_e, col_r = st.columns(3)
         p_start = col_s.date_input("Start Date").strftime('%Y-%m-%d')
         p_end = col_e.date_input("End Date").strftime('%Y-%m-%d')
@@ -223,6 +280,7 @@ def show_manage_projects():
         
         if st.form_submit_button("Add Project") and p_name:
             settings = db.get_settings()
+            selected_tester = tester_options[p_tester]
             db.add_project(
                 name=p_name,
                 application_name=p_app_name, 
@@ -231,8 +289,8 @@ def show_manage_projects():
                 start_date=p_start, 
                 end_date=p_end,
                 report_date=p_report_date,
-                tester_name=settings.get('tester_name', ''),
-                tester_description=settings.get('tester_description', ''),
+                tester_name=selected_tester['name'],
+                tester_description=selected_tester['bio'],
                 hosts='',
                 summary_of_strengths=settings.get('summary_of_strengths', ''),
                 summary_of_weaknesses=settings.get('summary_of_weaknesses', ''),
@@ -264,9 +322,13 @@ def show_manage_projects():
                 ep_report_date = col_r.text_input("Report Date", value=p.get('report_date', ''))
                 
                 st.markdown("### Report Details")
-                t_name = st.text_input("Tester Name", value=p.get('tester_name', '') or '')
-                t_label = f"{t_name} is ..." if t_name else "[Tester Name] is ..."
-                t_desc = st.text_area(t_label, value=p.get('tester_description', '') or '', placeholder="an offensive security expert with a strong track record of...")
+                ep_tester_idx = 0
+                ep_tester_name = p.get('tester_name', '')
+                tester_names = list(tester_options.keys())
+                if ep_tester_name in tester_names:
+                    ep_tester_idx = tester_names.index(ep_tester_name)
+                
+                ep_tester = st.selectbox("Assigned Tester", tester_names, index=ep_tester_idx)
                 p_hosts = st.text_area("Scope / Hosts", value=p.get('hosts', '') or '')
                 s_strengths = st.text_area("Summary of Strengths", value=p.get('summary_of_strengths', '') or '', height=150)
                 s_weaknesses = st.text_area("Summary of Weaknesses", value=p.get('summary_of_weaknesses', '') or '', height=150)
@@ -299,10 +361,9 @@ def show_manage_projects():
                 if st.form_submit_button("Save Project details"):
                     cleaned_t_list = [t for t in edited_t_list if t.get("Name") or t.get("Description")]
                     t_used_json = json.dumps(cleaned_t_list)
-                    db.update_project(p['id'], ep_name, ep_app_name, ep_type, ep_start, ep_end, ep_report_date, t_name, t_desc, p_hosts, s_strengths, s_weaknesses, p.get('cvss_mapping', ''), t_used_json)
+                    selected_tester = tester_options[ep_tester]
+                    db.update_project(p['id'], ep_name, ep_app_name, ep_type, ep_start, ep_end, ep_report_date, selected_tester['name'], selected_tester['bio'], p_hosts, s_strengths, s_weaknesses, p.get('cvss_mapping', ''), t_used_json)
                     if save_as_default:
-                        db.update_setting('tester_name', t_name)
-                        db.update_setting('tester_description', t_desc)
                         db.update_setting('summary_of_strengths', s_strengths)
                         db.update_setting('summary_of_weaknesses', s_weaknesses)
                         db.update_setting('tools_used', t_used_json)
@@ -643,34 +704,78 @@ def show_generate_report():
     output_dir = "reports"
     out_filename = f"{output_dir}/report_{project['id']}.pdf"
     
-    if st.button("Generate PDF Report"):
-        if not findings:
-            st.error("No findings to report. Please add findings first.")
-        else:
-            with st.spinner("Generating PDF..."):
+    out_attestation = f"{output_dir}/attestation_{project['id']}.pdf"
+    
+    with st.expander("Attestation Letter Customization"):
+        db_testers = db.get_testers()
+        tester_name = project.get('tester_name', '')
+        default_bio = ""
+        if tester_name:
+            db_tester = next((t for t in db_testers if t['name'] == tester_name), None)
+            if db_tester:
+                default_bio = db_tester.get('bio', '')
+        
+        attestation_bio = st.text_area("Tester Bio for Attestation Letter", value=default_bio, height=150)
+    
+    col_rep, col_att = st.columns(2)
+    
+    with col_rep:
+        if st.button("Generate PDF Report", use_container_width=True):
+            if not findings:
+                st.error("No findings to report. Please add findings first.")
+            else:
+                with st.spinner("Generating PDF..."):
+                    clients = db.get_clients()
+                    client = next((c for c in clients if c['id'] == project['client_id']), None)
+                    firm = db.get_settings()
+                    try:
+                        generate_report(project, client, firm, findings, out_filename)
+                        st.success("Report generated successfully!")
+                    except Exception as e:
+                        st.error(f"Failed to generate report: {e}")
+    
+    with col_att:
+        if st.button("Generate Attestation Letter", use_container_width=True):
+            with st.spinner("Generating Attestation Letter..."):
                 clients = db.get_clients()
                 client = next((c for c in clients if c['id'] == project['client_id']), None)
                 firm = db.get_settings()
-                
                 try:
-                    generate_report(project, client, firm, findings, out_filename)
-                    st.success("Report generated successfully!")
+                    generate_attestation(project, client, firm, out_attestation, custom_bio=attestation_bio)
+                    st.success("Attestation Letter generated successfully!")
                 except Exception as e:
-                    st.error(f"Failed to generate report: {e}")
+                    st.error(f"Failed to generate attestation: {e}")
                     
     import os
     if os.path.exists(out_filename):
+        st.divider()
+        st.subheader("Report")
         with open(out_filename, "rb") as pdf_file:
             pdf_data = pdf_file.read()
-            
             st.download_button(
-                label="Download PDF",
+                label="Download PDF Report",
                 data=pdf_data,
                 file_name=f"Kairos_Report_{project['name'].replace(' ', '_')}.pdf",
                 mime="application/pdf"
             )
-        
         with st.expander("Preview Report"):
+            import base64
+            base64_pdf = base64.b64encode(pdf_data).decode('utf-8')
+            pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800px" type="application/pdf"></iframe>'
+            st.markdown(pdf_display, unsafe_allow_html=True)
+
+    if os.path.exists(out_attestation):
+        st.divider()
+        st.subheader("Attestation Letter")
+        with open(out_attestation, "rb") as pdf_file:
+            pdf_data = pdf_file.read()
+            st.download_button(
+                label="Download Attestation Letter",
+                data=pdf_data,
+                file_name=f"Attestation_{project['name'].replace(' ', '_')}.pdf",
+                mime="application/pdf"
+            )
+        with st.expander("Preview Attestation Letter"):
             import base64
             base64_pdf = base64.b64encode(pdf_data).decode('utf-8')
             pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800px" type="application/pdf"></iframe>'
@@ -783,6 +888,7 @@ def show_login():
                 if totp.verify(token_clean, valid_window=1):
                     st.session_state.logged_in = True
                     st.session_state.username = user['username']
+                    cookie_controller.set('kairos_auth_token', user['username'], max_age=6*3600)
                     del st.session_state.mfa_user
                     st.session_state.login_attempts = 0
                     st.rerun()
@@ -812,6 +918,7 @@ def show_login():
                     else:
                         st.session_state.logged_in = True
                         st.session_state.username = username
+                        cookie_controller.set('kairos_auth_token', username, max_age=6*3600)
                         st.session_state.login_attempts = 0
                         st.rerun()
                 except VerifyMismatchError:
