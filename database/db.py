@@ -207,5 +207,12 @@ def update_user_mfa(username, mfa_secret, mfa_enabled):
     conn.commit()
     conn.close()
 
+def update_user_password(username, new_password_hash):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET password_hash = ? WHERE username = ?", (new_password_hash, username))
+    conn.commit()
+    conn.close()
+
 if __name__ == '__main__':
     init_db()
