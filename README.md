@@ -1,6 +1,8 @@
 # Kairos Report Engine
 
-Kairos Report Engine is a Streamlit-based web application designed to streamline penetration testing project management, vulnerability tracking, and automated report generation. It provides a centralized dashboard to track clients, manage projects across various service types (e.g., Web Application, Internal Network, Cloud), maintain a global vulnerability library, and automatically generate professional, well-formatted PDF reports and Attestation Letters.
+Kairos Report Engine is a web application designed to streamline penetration testing project management, vulnerability tracking, and automated report generation. 
+
+It provides a centralized dashboard to track clients, manage projects across various service types (e.g., Web Application, Internal Network, Cloud), maintain a global vulnerability library, and automatically generate professional, well-formatted PDF reports and Attestation Letters.
 
 ## Key Features
 
