@@ -54,20 +54,42 @@ def show_generate_report():
                     try:
                         generate_report(project, client, firm, findings, out_filename)
                         st.success("Report generated successfully!")
+                        
+                        missing = []
+                        if not project.get('tester_name'): missing.append("Assigned Tester")
+                        if not project.get('summary_of_strengths'): missing.append("Summary of Strengths")
+                        if not project.get('summary_of_weaknesses'): missing.append("Summary of Weaknesses")
+                        if not project.get('tools_used') or project.get('tools_used') == '[]' or project.get('tools_used') == '[{"Name": "", "Description": ""}]': missing.append("Tools Used")
+                        if not project.get('hosts'): missing.append("Scope / Hosts")
+                        
+                        if missing:
+                            st.warning(f"Note: The following project fields are empty and may appear blank in the report: {', '.join(missing)}")
+                            
                     except Exception as e:
                         st.error(f"Failed to generate report: {e}")
     
     with col_att:
         if st.button("Generate Attestation Letter", use_container_width=True):
             with st.spinner("Generating Attestation Letter..."):
-                clients = db.get_clients()
-                client = next((c for c in clients if c['id'] == project['client_id']), None)
-                firm = db.get_settings()
-                try:
-                    generate_attestation(project, client, firm, out_attestation, custom_bio=attestation_bio)
-                    st.success("Attestation Letter generated successfully!")
-                except Exception as e:
-                    st.error(f"Failed to generate attestation: {e}")
+                    clients = db.get_clients()
+                    client = next((c for c in clients if c['id'] == project['client_id']), None)
+                    firm = db.get_settings()
+                    try:
+                        generate_attestation(project, client, firm, out_attestation, custom_bio=attestation_bio)
+                        st.success("Attestation Letter generated successfully!")
+                        
+                        missing = []
+                        if not project.get('tester_name'): missing.append("Assigned Tester")
+                        if not project.get('start_date'): missing.append("Start Date")
+                        if not project.get('end_date'): missing.append("End Date")
+                        if not project.get('application_name') and not project.get('hosts'): missing.append("Application Name or Scope")
+                        if not attestation_bio: missing.append("Tester Bio")
+                        
+                        if missing:
+                            st.warning(f"Note: The following fields are empty and may appear blank in the letter: {', '.join(missing)}")
+                            
+                    except Exception as e:
+                        st.error(f"Failed to generate attestation: {e}")
                     
     if os.path.exists(out_filename):
         st.divider()
