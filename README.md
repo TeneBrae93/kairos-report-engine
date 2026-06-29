@@ -24,6 +24,21 @@ Ensure you have the following installed on your system:
   - On macOS: `brew install pango cairo libffi`
 - `openssl` for generating self-signed certificates.
 
+## Quick Start
+
+To quickly set up and launch the application from scratch, you can copy and paste this entire block into your terminal (assuming you have the prerequisites installed):
+
+```bash
+git clone https://github.com/TeneBrae93/kairos-report-engine.git
+cd kairos-report-engine
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+chmod +x generate_cert.sh
+./generate_cert.sh
+sudo .venv/bin/streamlit run app.py
+```
+
 ## Installation
 
 1. Clone the repository to your local machine.
