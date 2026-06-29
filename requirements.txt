@@ -7,3 +7,4 @@ argon2-cffi==23.1.0
 pyotp==2.9.0
 qrcode[pil]==7.4.2
 defusedxml==0.7.1
+streamlit-cookies-controller
