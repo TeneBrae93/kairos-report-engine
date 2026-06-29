@@ -36,7 +36,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 chmod +x generate_cert.sh
 ./generate_cert.sh
-sudo .venv/bin/streamlit run app.py --server.port 443 --server.headless true --server.sslCertFile certs/cert.pem --server.sslKeyFile certs/key.pem
+sudo .venv/bin/streamlit run --server.port 443 --server.headless true --server.sslCertFile certs/cert.pem --server.sslKeyFile certs/key.pem app.py
 ```
 
 ## Installation
@@ -65,7 +65,7 @@ chmod +x generate_cert.sh
 ### 2. Start the Application
 Because the application bounds to port 443 (a privileged port), start the server with `sudo`:
 ```bash
-sudo .venv/bin/streamlit run app.py --server.port 443 --server.headless true --server.sslCertFile certs/cert.pem --server.sslKeyFile certs/key.pem
+sudo .venv/bin/streamlit run --server.port 443 --server.headless true --server.sslCertFile certs/cert.pem --server.sslKeyFile certs/key.pem app.py
 ```
 
 This will start the local Streamlit server. Navigate your web browser to `https://localhost` to access the application. On your first launch, you will be prompted to create the initial Administrator account.
