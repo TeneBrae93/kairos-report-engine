@@ -8,6 +8,9 @@ Kairos Report Engine is a web application designed to streamline penetration tes
 
 It provides a centralized dashboard to track clients, manage projects across various service types (e.g., Web Application, Internal Network, Cloud), maintain a global vulnerability library, and automatically generate professional, well-formatted PDF reports and Attestation Letters.
 
+#### Note from Tyler
+I actively use this for engagements at Kairos Sec. Expect regular updates and new features. If you have any ideas, open an "Issue" with a feature request and I'll work on adding it. 
+
 ## Key Features
 
 - **PDF Generation**: Export highly customized, professional PDF reports and formal Attestation Letters powered by Jinja2 and WeasyPrint.
