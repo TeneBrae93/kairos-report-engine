@@ -146,6 +146,13 @@ def init_db():
             cursor.execute(f"ALTER TABLE project_findings ADD COLUMN {col} TEXT")
         except sqlite3.OperationalError:
             pass
+
+    # Migration: Add deleted_at columns for Soft Delete functionality
+    for table in ['clients', 'projects', 'project_findings']:
+        try:
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN deleted_at TEXT")
+        except sqlite3.OperationalError:
+            pass
             
     # Migration: Add project_type to projects
     try:

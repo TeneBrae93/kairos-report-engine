@@ -2,6 +2,55 @@ import streamlit as st
 import os
 from database import operations as db
 
+@st.dialog("Restore Deleted Files")
+def restore_files_dialog():
+    db.cleanup_deleted_items()
+    st.write("Items deleted within the last 30 days can be restored here.")
+    
+    del_clients = db.get_deleted_clients()
+    del_projects = db.get_deleted_projects()
+    del_findings = db.get_deleted_project_findings()
+    
+    if not del_clients and not del_projects and not del_findings:
+        st.info("The recycle bin is empty.")
+        return
+        
+    if del_clients:
+        st.markdown("### Deleted Clients")
+        for c in del_clients:
+            col1, col2, col3 = st.columns([2, 1, 1])
+            col1.write(c['name'])
+            if col2.button("Restore", key=f"rc_{c['id']}"):
+                db.restore_client(c['id'])
+                st.rerun()
+            if col3.button("Permanently Delete", key=f"hdc_{c['id']}", type="primary"):
+                db.hard_delete_client(c['id'])
+                st.rerun()
+                
+    if del_projects:
+        st.markdown("### Deleted Projects")
+        for p in del_projects:
+            col1, col2, col3 = st.columns([2, 1, 1])
+            col1.write(f"{p['name']} ({p.get('client_name', 'Unknown')})")
+            if col2.button("Restore", key=f"rp_{p['id']}"):
+                db.restore_project(p['id'])
+                st.rerun()
+            if col3.button("Permanently Delete", key=f"hdp_{p['id']}", type="primary"):
+                db.hard_delete_project(p['id'])
+                st.rerun()
+                
+    if del_findings:
+        st.markdown("### Deleted Findings")
+        for f in del_findings:
+            col1, col2, col3 = st.columns([2, 1, 1])
+            col1.write(f"{f['title']} ({f.get('project_name', 'Unknown')})")
+            if col2.button("Restore", key=f"rf_{f['id']}"):
+                db.restore_project_finding(f['id'])
+                st.rerun()
+            if col3.button("Permanently Delete", key=f"hdf_{f['id']}", type="primary"):
+                db.hard_delete_project_finding(f['id'])
+                st.rerun()
+
 def show_dashboard():
     st.title("Kairos Report Engine")
     st.write("Welcome to the Kairos Report Engine. Use this dashboard as your central hub to configure firm-wide settings, manage your client roster, and quickly jump into specific client projects.")
@@ -116,14 +165,21 @@ def show_dashboard():
 
     st.divider()
     st.subheader("Data Management")
-    st.write("Export your entire local database and project assets to a portable ZIP file.")
-    if st.button("Generate Backup Archive"):
-        import shutil
-        shutil.make_archive('kairos_backup', 'zip', 'data')
-        st.session_state.backup_ready = True
-        st.rerun()
-        
-    if st.session_state.get('backup_ready'):
-        if os.path.exists('kairos_backup.zip'):
-            with open('kairos_backup.zip', 'rb') as f:
-                st.download_button("Download ZIP", data=f, file_name="kairos_backup.zip", mime="application/zip")
+    st.write("Export your entire local database and project assets to a portable ZIP file, or recover accidentally deleted items.")
+    
+    col_dm1, col_dm2 = st.columns(2)
+    with col_dm1:
+        if st.button("Generate Backup Archive", use_container_width=True):
+            import shutil
+            shutil.make_archive('kairos_backup', 'zip', 'data')
+            st.session_state.backup_ready = True
+            st.rerun()
+            
+        if st.session_state.get('backup_ready'):
+            if os.path.exists('kairos_backup.zip'):
+                with open('kairos_backup.zip', 'rb') as f:
+                    st.download_button("Download ZIP", data=f, file_name="kairos_backup.zip", mime="application/zip", use_container_width=True)
+                    
+    with col_dm2:
+        if st.button("Restore Deleted Files", use_container_width=True):
+            restore_files_dialog()

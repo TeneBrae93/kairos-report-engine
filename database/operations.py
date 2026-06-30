@@ -1,5 +1,16 @@
 from database.db import get_connection
 
+# --- System ---
+def cleanup_deleted_items():
+    conn = get_connection()
+    cursor = conn.cursor()
+    # Delete items where deleted_at is older than 30 days
+    cursor.execute("DELETE FROM project_findings WHERE deleted_at IS NOT NULL AND datetime(deleted_at) <= datetime('now', '-30 days')")
+    cursor.execute("DELETE FROM projects WHERE deleted_at IS NOT NULL AND datetime(deleted_at) <= datetime('now', '-30 days')")
+    cursor.execute("DELETE FROM clients WHERE deleted_at IS NOT NULL AND datetime(deleted_at) <= datetime('now', '-30 days')")
+    conn.commit()
+    conn.close()
+
 # --- Settings ---
 def get_settings() -> dict:
     conn = get_connection()
@@ -20,7 +31,15 @@ def update_setting(key: str, value: str):
 def get_clients() -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM clients")
+    cursor.execute("SELECT * FROM clients WHERE deleted_at IS NULL")
+    clients = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return clients
+
+def get_deleted_clients() -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM clients WHERE deleted_at IS NOT NULL")
     clients = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return clients
@@ -35,6 +54,28 @@ def add_client(name: str, description: str = ''):
 def delete_client(client_id: int):
     conn = get_connection()
     cursor = conn.cursor()
+    cursor.execute("UPDATE clients SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", (client_id,))
+    # Soft delete all associated projects
+    cursor.execute("UPDATE projects SET deleted_at = CURRENT_TIMESTAMP WHERE client_id = ? AND deleted_at IS NULL", (client_id,))
+    # Soft delete all findings for those projects
+    cursor.execute("""
+        UPDATE project_findings SET deleted_at = CURRENT_TIMESTAMP 
+        WHERE project_id IN (SELECT id FROM projects WHERE client_id = ?) 
+        AND deleted_at IS NULL
+    """, (client_id,))
+    conn.commit()
+    conn.close()
+
+def restore_client(client_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE clients SET deleted_at = NULL WHERE id = ?", (client_id,))
+    conn.commit()
+    conn.close()
+
+def hard_delete_client(client_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
     cursor.execute("DELETE FROM clients WHERE id = ?", (client_id,))
     conn.commit()
     conn.close()
@@ -47,6 +88,20 @@ def get_projects() -> list[dict]:
         SELECT p.*, c.name as client_name 
         FROM projects p 
         JOIN clients c ON p.client_id = c.id
+        WHERE p.deleted_at IS NULL AND c.deleted_at IS NULL
+    """)
+    projects = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return projects
+
+def get_deleted_projects() -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT p.*, c.name as client_name 
+        FROM projects p 
+        JOIN clients c ON p.client_id = c.id
+        WHERE p.deleted_at IS NOT NULL
     """)
     projects = [dict(row) for row in cursor.fetchall()]
     conn.close()
@@ -74,6 +129,22 @@ def update_project(project_id: int, name: str, application_name: str, project_ty
     conn.close()
 
 def delete_project(project_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE projects SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", (project_id,))
+    # Soft delete all findings for this project
+    cursor.execute("UPDATE project_findings SET deleted_at = CURRENT_TIMESTAMP WHERE project_id = ? AND deleted_at IS NULL", (project_id,))
+    conn.commit()
+    conn.close()
+
+def restore_project(project_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE projects SET deleted_at = NULL WHERE id = ?", (project_id,))
+    conn.commit()
+    conn.close()
+
+def hard_delete_project(project_id: int):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM projects WHERE id = ?", (project_id,))
@@ -110,7 +181,20 @@ def delete_from_vuln_library(vuln_id: int):
 def get_project_findings(project_id: int) -> list[dict]:
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM project_findings WHERE project_id = ?", (project_id,))
+    cursor.execute("SELECT * FROM project_findings WHERE project_id = ? AND deleted_at IS NULL", (project_id,))
+    findings = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    return findings
+
+def get_deleted_project_findings() -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT f.*, p.name as project_name 
+        FROM project_findings f 
+        JOIN projects p ON f.project_id = p.id 
+        WHERE f.deleted_at IS NOT NULL
+    """)
     findings = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return findings
@@ -137,6 +221,20 @@ def update_project_finding(finding_id: int, title: str, severity: str, descripti
     conn.close()
 
 def delete_project_finding(finding_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE project_findings SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?", (finding_id,))
+    conn.commit()
+    conn.close()
+
+def restore_project_finding(finding_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE project_findings SET deleted_at = NULL WHERE id = ?", (finding_id,))
+    conn.commit()
+    conn.close()
+
+def hard_delete_project_finding(finding_id: int):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM project_findings WHERE id = ?", (finding_id,))
@@ -180,6 +278,7 @@ def get_client_with_most_recent_finding():
         SELECT p.client_id
         FROM project_findings f
         JOIN projects p ON f.project_id = p.id
+        WHERE f.deleted_at IS NULL AND p.deleted_at IS NULL
         ORDER BY f.id DESC
         LIMIT 1
     """)
