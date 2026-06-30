@@ -128,6 +128,13 @@ def update_project(project_id: int, name: str, application_name: str, project_ty
     conn.commit()
     conn.close()
 
+def update_project_attestation_bio(project_id: int, attestation_bio: str):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE projects SET attestation_bio = ? WHERE id = ?", (attestation_bio, project_id))
+    conn.commit()
+    conn.close()
+
 def delete_project(project_id: int):
     conn = get_connection()
     cursor = conn.cursor()

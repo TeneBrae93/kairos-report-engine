@@ -154,6 +154,12 @@ def init_db():
         except sqlite3.OperationalError:
             pass
             
+    # Migration: Add attestation_bio to projects
+    try:
+        cursor.execute("ALTER TABLE projects ADD COLUMN attestation_bio TEXT")
+    except sqlite3.OperationalError:
+        pass
+            
     # Migration: Add project_type to projects
     try:
         cursor.execute("ALTER TABLE projects ADD COLUMN project_type TEXT DEFAULT 'Web Application Penetration Test'")

@@ -32,13 +32,22 @@ def show_generate_report():
     with st.expander("Attestation Letter Customization"):
         db_testers = db.get_testers()
         tester_name = project.get('tester_name', '')
-        default_bio = ""
-        if tester_name:
-            db_tester = next((t for t in db_testers if t['name'] == tester_name), None)
-            if db_tester:
-                default_bio = db_tester.get('bio', '')
         
-        attestation_bio = st.text_area("Tester Bio for Attestation Letter", value=default_bio, height=150)
+        if project.get('attestation_bio') is not None:
+            default_bio = project.get('attestation_bio')
+        else:
+            default_bio = ""
+            if tester_name:
+                db_tester = next((t for t in db_testers if t['name'] == tester_name), None)
+                if db_tester:
+                    default_bio = db_tester.get('bio', '')
+        
+        with st.form(f"attestation_customization_form_{project['id']}"):
+            attestation_bio = st.text_area("Tester Bio for Attestation Letter", value=default_bio, height=150)
+            if st.form_submit_button("Save Customization"):
+                db.update_project_attestation_bio(project['id'], attestation_bio)
+                st.success("Customization saved!")
+                st.rerun()
     
     col_rep, col_att = st.columns(2)
     
