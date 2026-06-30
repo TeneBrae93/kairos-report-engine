@@ -30,7 +30,7 @@ Ensure you have the following installed on your system:
   - On macOS: `brew install pango cairo libffi`
 - `openssl` for generating self-signed certificates.
 
-## Docker (Recommended)
+## Docker
 
 The easiest way to run the application. Docker handles all system dependencies (WeasyPrint, Pango, Cairo, etc.) automatically.
 
@@ -48,7 +48,7 @@ docker compose up -d
 
 The application will be available at: **https://localhost:8443**
 
-On first launch, self-signed SSL certificates are generated automatically. Your browser will show a security warning for the self-signed certificate — you can safely bypass it for local use.
+On first launch, self-signed SSL certificates are generated automatically. Your browser will show a security warning for the self-signed certificate and you can safely bypass it for local use.
 
 ### Data Persistence
 
@@ -89,7 +89,7 @@ docker compose up -d
 
 ---
 
-## Quick Start (ohne Docker)
+## Quick Start (without Docker)
 
 To quickly set up and launch the application from scratch, you can copy and paste this entire block into your terminal (assuming you have the prerequisites installed):
 
