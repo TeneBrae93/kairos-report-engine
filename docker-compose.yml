@@ -1,0 +1,15 @@
+services:
+  kairos:
+    build: .
+    ports:
+      - "8443:8443"
+    volumes:
+      - kairos-data:/app/data
+      - kairos-reports:/app/reports
+      - kairos-certs:/app/certs
+    restart: unless-stopped
+
+volumes:
+  kairos-data:
+  kairos-reports:
+  kairos-certs:
