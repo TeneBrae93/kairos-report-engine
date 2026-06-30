@@ -1,0 +1,11 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+app.log
+data/
+reports/
+certs/
+*.md

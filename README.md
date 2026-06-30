@@ -30,7 +30,66 @@ Ensure you have the following installed on your system:
   - On macOS: `brew install pango cairo libffi`
 - `openssl` for generating self-signed certificates.
 
-## Quick Start
+## Docker
+
+The easiest way to run the application. Docker handles all system dependencies (WeasyPrint, Pango, Cairo, etc.) automatically.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed
+
+### Quick Start with Docker Compose
+
+```bash
+git clone https://github.com/TeneBrae93/kairos-report-engine.git
+cd kairos-report-engine
+docker compose up -d
+```
+
+The application will be available at: **https://localhost:8443**
+
+On first launch, self-signed SSL certificates are generated automatically. Your browser will show a security warning for the self-signed certificate and you can safely bypass it for local use.
+
+### Data Persistence
+
+Three named Docker volumes keep your data safe across container restarts:
+
+| Volume | Contents |
+|---|---|
+| `kairos-data` | SQLite database (`kairos.db`) |
+| `kairos-reports` | Generated PDF reports |
+| `kairos-certs` | SSL certificates |
+
+### Useful Commands
+
+```bash
+# Stream logs in real time
+docker compose logs -f
+
+# Stop the container
+docker compose down
+
+# Stop and remove all volumes (Warning: this deletes all data)
+docker compose down -v
+
+# Rebuild the image after code changes
+docker compose up -d --build
+```
+
+### Using Your Own SSL Certificates
+
+You can inject your own certificates into the volume before starting the container:
+
+```bash
+docker volume create kairos-certs
+docker run --rm -v kairos-certs:/certs -v $(pwd)/my-certs:/src alpine \
+    sh -c "cp /src/cert.pem /certs/cert.pem && cp /src/key.pem /certs/key.pem"
+docker compose up -d
+```
+
+---
+
+## Quick Start (without Docker)
 
 To quickly set up and launch the application from scratch, you can copy and paste this entire block into your terminal (assuming you have the prerequisites installed):
 
