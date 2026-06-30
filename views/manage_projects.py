@@ -2,6 +2,16 @@ import streamlit as st
 import json
 from database import operations as db
 
+@st.dialog("Confirm Deletion")
+def delete_project_dialog(project_id, project_name):
+    st.warning(f"Are you sure you want to delete the project '{project_name}'? This action cannot be undone.")
+    col1, col2 = st.columns(2)
+    if col1.button("Yes, Delete", type="primary", use_container_width=True):
+        db.delete_project(project_id)
+        st.rerun()
+    if col2.button("Cancel", use_container_width=True):
+        st.rerun()
+
 def show_manage_projects():
     st.title("Manage Projects")
     st.write("Create and edit penetration testing projects for your active client. Here you can define the project scope, tester details, overall strengths/weaknesses, and the specific tools utilized during the engagement.")
@@ -103,8 +113,7 @@ def show_manage_projects():
                     st.rerun()
 
             if st.button("Delete Project", key=f"del_project_{p['id']}"):
-                db.delete_project(p['id'])
-                st.rerun()
+                delete_project_dialog(p['id'], p['name'])
                 
     st.divider()
     st.subheader("Add New Project")
