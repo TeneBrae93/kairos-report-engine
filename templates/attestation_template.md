@@ -18,7 +18,7 @@ This attestation represents a point-in-time assessment of the environment as it 
 
 Sincerely,
 
-<div style="font-family: 'Dancing Script', cursive; font-size: 16pt; margin-top: 15px; margin-bottom: 5px; color: #333;">
+<div style="font-family: 'Alex Brush', cursive; font-size: 16pt; margin-top: 15px; margin-bottom: 5px; color: #333;">
 {{ tester.name }}
 </div>
 
