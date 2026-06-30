@@ -8,3 +8,4 @@ pyotp==2.9.0
 qrcode[pil]==7.4.2
 defusedxml==0.7.1
 streamlit-cookies-controller
+matplotlib
