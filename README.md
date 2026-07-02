@@ -101,7 +101,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 chmod +x generate_cert.sh
 ./generate_cert.sh
-sudo .venv/bin/streamlit run --server.port 443 --server.headless true --server.sslCertFile certs/cert.pem --server.sslKeyFile certs/key.pem app.py
+sudo .venv/bin/streamlit run app.py --server.port 443 --server.sslCertFile certs/cert.pem --server.sslKeyFile certs/key.pem --browser.gatherUsageStats false
 ```
 
 ## Installation
