@@ -1,6 +1,7 @@
 import os
 import markdown
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import FileSystemLoader
+from jinja2.sandbox import SandboxedEnvironment
 from weasyprint import HTML
 import logging
 
@@ -209,7 +210,7 @@ def generate_report(project, client, firm, findings, output_path):
 """
         # Inject where user explicitly requested
         md_content = md_content.replace('{{ findings.detailed_findings }}', detailed_findings_md)
-        env = Environment()
+        env = SandboxedEnvironment(autoescape=False)
         template = env.from_string(md_content)
         
         firm_dict = dict(firm)
@@ -258,7 +259,7 @@ def generate_report(project, client, firm, findings, output_path):
         report_html_body = markdown.markdown(rendered_md, extensions=['fenced_code', 'tables', 'md_in_html', 'toc', 'attr_list'])
         
         # Load the HTML wrapper
-        html_env = Environment(loader=FileSystemLoader(template_dir))
+        html_env = SandboxedEnvironment(loader=FileSystemLoader(template_dir), autoescape=False)
         html_template = html_env.get_template('report_template.html')
         final_html = html_template.render(body=report_html_body, firm=firm_dict, project=project, client=client)
 
@@ -302,7 +303,7 @@ def generate_attestation(project, client, firm, output_path, custom_bio=None):
                 tester['description'] = custom_bio if custom_bio is not None else db_tester.get('bio', '')
                 tester['title'] = db_tester.get('title', '')
                 
-        env = Environment()
+        env = SandboxedEnvironment(autoescape=False)
         template = env.from_string(md_content)
         
         rendered_md = template.render(
@@ -314,7 +315,7 @@ def generate_attestation(project, client, firm, output_path, custom_bio=None):
         
         report_html_body = markdown.markdown(rendered_md, extensions=['fenced_code', 'tables', 'md_in_html', 'attr_list'])
         
-        html_env = Environment(loader=FileSystemLoader(template_dir))
+        html_env = SandboxedEnvironment(loader=FileSystemLoader(template_dir), autoescape=False)
         html_template = html_env.get_template('attestation_wrapper.html')
         project_root = os.path.dirname(os.path.dirname(__file__))
         
