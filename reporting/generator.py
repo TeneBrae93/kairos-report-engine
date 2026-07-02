@@ -112,7 +112,7 @@ def generate_report(project, client, firm, findings, output_path):
             
         table_html += '  </tbody>\n</table>\n</div>'
         
-        md_content = md_content.replace('{{ findings.table }}', table_html)
+        md_content = md_content.replace('{{ findings.table }}', '{{ findings_table }}')
         
         # --- Findings Bar Chart ---
         import matplotlib
@@ -251,7 +251,8 @@ def generate_report(project, client, firm, findings, output_path):
             client=client,
             firm=firm_dict,
             tester=tester,
-            findings=findings
+            findings=findings,
+            findings_table=table_html
         )
         
         # Convert generated markdown into HTML
