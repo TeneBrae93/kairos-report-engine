@@ -54,7 +54,7 @@ def show_manage_findings():
                         e_path = f.get('path', '')
                     
                     col_c, col_v = st.columns(2)
-                    e_cvss = col_c.number_input("CVSS", min_value=0.0, max_value=10.0, step=0.1, value=float(f.get('cvss', 0.0)))
+                    e_cvss = col_c.number_input("CVSS", min_value=0.0, max_value=10.0, step=0.1, value=float(f.get('cvss') or 0.0))
                     e_cvss_vector = col_v.text_input("CVSSv4 Vector String", value=f.get('cvss_vector', ''))
                     
                     e_desc = st.text_area("Description", value=f.get('description', ''))

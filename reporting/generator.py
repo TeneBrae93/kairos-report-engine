@@ -1,6 +1,8 @@
 import os
+import re
 import markdown
 from jinja2 import Environment, FileSystemLoader
+from jinja2.sandbox import SandboxedEnvironment
 from weasyprint import HTML
 import logging
 
@@ -67,6 +69,9 @@ def generate_report(project, client, firm, findings, output_path):
             else:
                 severity_counts['Informational'] += 1
             
+            # Single source of truth for the anchor so the summary-table link
+            # and the detailed-findings anchor always match.
+            finding['anchor'] = re.sub(r'[^a-z0-9]+', '-', (finding.get('title') or '').lower()).strip('-')
             finding['steps_html'] = markdown.markdown(finding.get('steps_to_reproduce') or '', extensions=['fenced_code', 'tables', 'md_in_html', 'toc', 'attr_list'])
 
         table_html = '<div style="page-break-inside: avoid; margin-bottom: 20px;">\n'
@@ -100,8 +105,7 @@ def generate_report(project, client, firm, findings, output_path):
             else:
                 host_html = host_display
                 
-            import re
-            title_slug = re.sub(r'[^a-z0-9]+', '-', finding["title"].lower()).strip('-')
+            title_slug = finding['anchor']
             title_html = f'<a href="#{title_slug}" style="color: #6b46c1; text-decoration: underline;">{finding["title"]}</a>'
             
             table_html += f'    <tr>\n'
@@ -166,11 +170,11 @@ def generate_report(project, client, firm, findings, output_path):
 {% endif %}
 
 <div style="page-break-inside: avoid;" markdown="1">
-### <a name="{{ finding.title | lower | replace(' ', '-') | replace('(', '') | replace(')', '') }}"></a>{{ finding.title }}
+### <a name="{{ finding.anchor }}"></a>{{ finding.title }}
 
 <div style="margin-bottom: 10px;">
     <span class="severity-badge {{ finding.severity }}">{{ finding.severity }}</span>
-    {% if finding.cvss > 0 %}&nbsp; <strong>CVSS:</strong> {{ finding.cvss }}{% endif %}
+    {% if finding.cvss and finding.cvss > 0 %}&nbsp; <strong>CVSS:</strong> {{ finding.cvss }}{% endif %}
 </div>
 
 {% if finding.cvss_vector %}**CVSSv4 Vector String:** {{ finding.cvss_vector }}<br>
@@ -209,7 +213,7 @@ def generate_report(project, client, firm, findings, output_path):
 """
         # Inject where user explicitly requested
         md_content = md_content.replace('{{ findings.detailed_findings }}', detailed_findings_md)
-        env = Environment()
+        env = SandboxedEnvironment()  # sandbox blocks dunder/globals access even for user-edited templates
         template = env.from_string(md_content)
         
         firm_dict = dict(firm)
@@ -303,7 +307,7 @@ def generate_attestation(project, client, firm, output_path, custom_bio=None):
                 tester['description'] = custom_bio if custom_bio is not None else db_tester.get('bio', '')
                 tester['title'] = db_tester.get('title', '')
                 
-        env = Environment()
+        env = SandboxedEnvironment()  # sandbox blocks dunder/globals access even for user-edited templates
         template = env.from_string(md_content)
         
         rendered_md = template.render(

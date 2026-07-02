@@ -4,6 +4,11 @@ import pyotp
 from database.db import get_user, record_failed_login, reset_failed_logins
 from utils.auth import ph, get_cookie_controller, sign_token
 
+# Precomputed once so a login attempt for a *nonexistent* user still performs an
+# Argon2 verification of the same cost as a real one. Without this, the response
+# time (fast reject vs. slow hash) reveals which usernames exist.
+_DUMMY_HASH = ph.hash("kairos_constant_time_placeholder")
+
 def show_login():
     st.title("Kairos Login")
     
@@ -40,6 +45,12 @@ def show_login():
         if st.form_submit_button("Login"):
             user = get_user(username)
             if not user:
+                # Burn the same amount of time as a real verify so timing does
+                # not disclose whether the username exists.
+                try:
+                    ph.verify(_DUMMY_HASH, password)
+                except Exception:
+                    pass
                 st.error("Invalid credentials.")
             else:
                 if user.get('lockout_until', 0) > time.time():
