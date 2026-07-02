@@ -1,12 +1,17 @@
+import streamlit as st
 from argon2 import PasswordHasher
-from streamlit_cookies_controller import CookieController
 from database import operations as db
 import secrets
 import hmac
 import hashlib
 
 ph = PasswordHasher()
-cookie_controller = CookieController()
+
+def get_cookie_controller():
+    if 'cookie_controller' not in st.session_state:
+        from streamlit_cookies_controller import CookieController
+        st.session_state.cookie_controller = CookieController()
+    return st.session_state.cookie_controller
 
 def get_hmac_secret():
     settings = db.get_settings()

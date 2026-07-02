@@ -11,7 +11,7 @@ footer {visibility: hidden;}
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 from database.db import init_db, get_user_count
-from utils.auth import cookie_controller
+from utils.auth import get_cookie_controller
 from utils.helpers import get_image_base64
 
 from views.dashboard import show_dashboard
@@ -29,14 +29,14 @@ init_db()
 
 def main():
     if st.session_state.get('trigger_logout'):
-        cookie_controller.remove('kairos_auth_token')
+        get_cookie_controller().remove('kairos_auth_token')
         st.session_state.clear()
         st.session_state.logged_out = True
         st.info("Securely logging you out...")
         st.markdown('<meta http-equiv="refresh" content="1">', unsafe_allow_html=True)
         return
 
-    auth_token = cookie_controller.get('kairos_auth_token')
+    auth_token = get_cookie_controller().get('kairos_auth_token')
     if auth_token and not st.session_state.get('logged_in') and not st.session_state.get('logged_out'):
         from utils.auth import verify_token
         verified_username = verify_token(auth_token)
@@ -44,7 +44,7 @@ def main():
             st.session_state.logged_in = True
             st.session_state.username = verified_username
         else:
-            cookie_controller.remove('kairos_auth_token')
+            get_cookie_controller().remove('kairos_auth_token')
         
     if not st.session_state.get('logged_in'):
         if get_user_count() == 0:

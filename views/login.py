@@ -2,7 +2,7 @@ import streamlit as st
 import time
 import pyotp
 from database.db import get_user
-from utils.auth import ph, cookie_controller, sign_token
+from utils.auth import ph, get_cookie_controller, sign_token
 
 def show_login():
     st.title("Kairos Login")
@@ -27,7 +27,7 @@ def show_login():
                 if totp.verify(token_clean, valid_window=1):
                     st.session_state.logged_in = True
                     st.session_state.username = user['username']
-                    cookie_controller.set('kairos_auth_token', sign_token(user['username']), max_age=6*3600)
+                    get_cookie_controller().set('kairos_auth_token', sign_token(user['username']), max_age=6*3600)
                     del st.session_state.mfa_user
                     st.session_state.login_attempts = 0
                     st.rerun()
@@ -57,7 +57,7 @@ def show_login():
                     else:
                         st.session_state.logged_in = True
                         st.session_state.username = username
-                        cookie_controller.set('kairos_auth_token', sign_token(username), max_age=6*3600)
+                        get_cookie_controller().set('kairos_auth_token', sign_token(username), max_age=6*3600)
                         st.session_state.login_attempts = 0
                         st.rerun()
                 except Exception:
