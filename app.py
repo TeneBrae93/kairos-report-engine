@@ -38,8 +38,13 @@ def main():
 
     auth_token = cookie_controller.get('kairos_auth_token')
     if auth_token and not st.session_state.get('logged_in') and not st.session_state.get('logged_out'):
-        st.session_state.logged_in = True
-        st.session_state.username = auth_token
+        from utils.auth import verify_token
+        verified_username = verify_token(auth_token)
+        if verified_username:
+            st.session_state.logged_in = True
+            st.session_state.username = verified_username
+        else:
+            cookie_controller.remove('kairos_auth_token')
         
     if not st.session_state.get('logged_in'):
         if get_user_count() == 0:
