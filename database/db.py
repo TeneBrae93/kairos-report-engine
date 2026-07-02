@@ -165,6 +165,13 @@ def init_db():
         cursor.execute("ALTER TABLE projects ADD COLUMN project_type TEXT DEFAULT 'Web Application Penetration Test'")
     except sqlite3.OperationalError:
         pass
+        
+    # Migration: Add brute force protection to users
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0")
+        cursor.execute("ALTER TABLE users ADD COLUMN lockout_until REAL DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
 
     try:
         cursor.execute("ALTER TABLE vuln_library ADD COLUMN service_type TEXT")
@@ -224,6 +231,26 @@ def update_user_password(username, new_password_hash):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE users SET password_hash = ? WHERE username = ?", (new_password_hash, username))
+    conn.commit()
+    conn.close()
+
+def record_failed_login(username):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET failed_login_attempts = failed_login_attempts + 1 WHERE username = ?", (username,))
+    
+    cursor.execute("SELECT failed_login_attempts FROM users WHERE username = ?", (username,))
+    row = cursor.fetchone()
+    if row and row['failed_login_attempts'] >= 3:
+        import time
+        cursor.execute("UPDATE users SET lockout_until = ? WHERE username = ?", (time.time() + 300, username))
+    conn.commit()
+    conn.close()
+
+def reset_failed_logins(username):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET failed_login_attempts = 0, lockout_until = 0 WHERE username = ?", (username,))
     conn.commit()
     conn.close()
 
