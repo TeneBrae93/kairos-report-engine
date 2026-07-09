@@ -12,7 +12,7 @@ The assessment followed a comprehensive methodology based on industry-recognized
 
 **Conclusion**
 <br>
-Based on the testing performed, {{ firm.firm_name }} confirms that {{ client.name }} has subjected the {{ project.application_name }} to a rigorous security assessment. The organization has demonstrated a strong commitment to security by engaging in proactive testing and maintaining robust foundational controls.
+Based on the testing performed, {{ firm.firm_name }} confirms that {{ client.name }} has subjected the {{ project.application_name }} application to a rigorous security assessment. The organization has demonstrated a strong commitment to security by engaging in proactive testing and maintaining robust foundational controls.
 
 This attestation represents a point-in-time assessment of the environment as it existed during the testing window.
 
