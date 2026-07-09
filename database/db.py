@@ -189,6 +189,15 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    # Create Login Attempts Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS login_attempts (
+            username TEXT PRIMARY KEY,
+            failed_attempts INTEGER DEFAULT 0,
+            last_attempt REAL
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -235,24 +244,33 @@ def update_user_password(username, new_password_hash):
     conn.close()
 
 def record_failed_login(username):
+    import time
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE users SET failed_login_attempts = failed_login_attempts + 1 WHERE username = ?", (username,))
-    
-    cursor.execute("SELECT failed_login_attempts FROM users WHERE username = ?", (username,))
-    row = cursor.fetchone()
-    if row and row['failed_login_attempts'] >= 3:
-        import time
-        cursor.execute("UPDATE users SET lockout_until = ? WHERE username = ?", (time.time() + 300, username))
+    cursor.execute('''
+        INSERT INTO login_attempts (username, failed_attempts, last_attempt) 
+        VALUES (?, 1, ?) 
+        ON CONFLICT(username) DO UPDATE SET 
+            failed_attempts = failed_attempts + 1, 
+            last_attempt = ?
+    ''', (username, time.time(), time.time()))
     conn.commit()
     conn.close()
 
 def reset_failed_logins(username):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE users SET failed_login_attempts = 0, lockout_until = 0 WHERE username = ?", (username,))
+    cursor.execute("DELETE FROM login_attempts WHERE username = ?", (username,))
     conn.commit()
     conn.close()
+
+def get_failed_logins(username):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT failed_attempts FROM login_attempts WHERE username = ?", (username,))
+    row = cursor.fetchone()
+    conn.close()
+    return row['failed_attempts'] if row else 0
 
 if __name__ == '__main__':
     init_db()

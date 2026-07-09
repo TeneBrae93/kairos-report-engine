@@ -9,3 +9,4 @@ qrcode[pil]==7.4.2
 defusedxml==0.7.1
 streamlit-cookies-controller
 matplotlib
+captcha==0.5.0
