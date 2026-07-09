@@ -107,18 +107,36 @@ def show_vuln_library():
         
     for v in lib:
         with st.expander(f"[{v['severity']}] {v['title']}"):
-            st.write(f"**CVSS Score:** {v['cvss']}")
-            if v.get('cvss_vector'):
-                st.write(f"**CVSSv4 Vector String:** {v['cvss_vector']}")
-            if v.get('cve'):
-                st.write(f"**CVE ID:** {v['cve']}")
-            st.write(f"**Description:** {v['description']}")
-            if v.get('steps_to_reproduce'):
-                st.write("**Steps to Reproduce:**")
-                st.write(v['steps_to_reproduce'])
-            st.write(f"**Remediation:** {v['remediation']}")
-            if v.get('refs'):
-                st.write(f"**References:**\n{v['refs']}")
-            if st.button("Delete", key=f"del_vuln_{v['id']}"):
+            with st.form(f"edit_vuln_{v['id']}"):
+                e_service_type_idx = project_types.index(v.get('service_type', 'Web Application Penetration Test')) if v.get('service_type') in project_types else 0
+                e_service_type = st.selectbox("Service Type", project_types, index=e_service_type_idx)
+                
+                e_title = st.text_input("Title", value=v['title'])
+                
+                e_sev_options = ["Critical", "High", "Medium", "Low", "Info"]
+                e_sev_index = e_sev_options.index(v['severity']) if v['severity'] in e_sev_options else 4
+                e_sev = st.selectbox("Severity", e_sev_options, index=e_sev_index)
+                
+                col_c, col_v = st.columns(2)
+                e_cvss = col_c.number_input("CVSS", min_value=0.0, max_value=10.0, step=0.1, value=float(v.get('cvss') or 0.0))
+                e_cvss_vector = col_v.text_input("CVSSv4 Vector String", value=v.get('cvss_vector', ''))
+                
+                e_cve = st.text_input("CVE ID", value=v.get('cve', ''))
+                
+                e_desc = st.text_area("Description", value=v.get('description', ''))
+                
+                st.markdown("**Steps to Reproduce**")
+                jodit_config = {"theme": "dark", "style": {"background": "#0e1117", "color": "#ffffff"}, "height": 400, "uploader": {"insertImageAsBase64URI": True}}
+                e_steps = st_jodit(value=v.get('steps_to_reproduce', ''), config=jodit_config, key=f"e_steps_{v['id']}")
+                
+                e_rem = st.text_area("Remediation", value=v.get('remediation', ''))
+                e_refs = st.text_area("References (one URL per line)", value=v.get('refs', ''))
+                
+                if st.form_submit_button("Save Changes"):
+                    db.update_in_vuln_library(v['id'], e_title, e_sev, e_desc, e_rem, e_cvss, e_cve, e_steps, e_service_type, e_cvss_vector, e_refs)
+                    st.success("Saved!")
+                    st.rerun()
+            
+            if st.button("Delete Vulnerability", key=f"del_vuln_{v['id']}"):
                 db.delete_from_vuln_library(v['id'])
                 st.rerun()

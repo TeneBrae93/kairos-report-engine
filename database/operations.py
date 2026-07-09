@@ -186,6 +186,17 @@ def delete_from_vuln_library(vuln_id: int):
     conn.commit()
     conn.close()
 
+def update_in_vuln_library(vuln_id: int, title: str, severity: str, description: str, remediation: str, cvss: float, cve: str, steps_to_reproduce: str, service_type: str, cvss_vector: str, refs: str):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE vuln_library 
+        SET service_type = ?, title = ?, severity = ?, description = ?, remediation = ?, cvss = ?, cve = ?, steps_to_reproduce = ?, cvss_vector = ?, refs = ?
+        WHERE id = ?
+    """, (service_type, title, severity, description, remediation, cvss, cve, steps_to_reproduce, cvss_vector, refs, vuln_id))
+    conn.commit()
+    conn.close()
+
 # --- Project Findings ---
 def get_project_findings(project_id: int) -> list[dict]:
     conn = get_connection()
