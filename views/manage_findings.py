@@ -4,7 +4,7 @@ from database import operations as db
 from streamlit_jodit import st_jodit
 from parsers.nessus import parse_nessus
 from parsers.burp import parse_burp
-from utils.helpers import process_base64_images
+from utils.helpers import process_base64_images, restore_base64_images
 
 def show_manage_findings():
     st.title("Add Findings")
@@ -63,7 +63,7 @@ def show_manage_findings():
                     
                     st.markdown("**Steps to Reproduce & PoC**")
                     jodit_config = {"theme": "dark", "style": {"background": "#0e1117", "color": "#ffffff"}, "height": 400, "uploader": {"insertImageAsBase64URI": True}}
-                    e_steps = st_jodit(value=f.get('steps_to_reproduce', ''), config=jodit_config, key=f"e_steps_{f['id']}")
+                    e_steps = st_jodit(value=restore_base64_images(f.get('steps_to_reproduce', '')), config=jodit_config, key=f"e_steps_{f['id']}")
                     
                     if st.form_submit_button("Save Changes"):
                         processed_steps = process_base64_images(e_steps, active_project['client_id'], project_id)
