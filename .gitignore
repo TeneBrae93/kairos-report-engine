@@ -42,4 +42,6 @@ gemini.MD
 *prompts*.[tT][xX][tT]
 .ai/
 llm_chats/
-ai_outputs/
+ai_outputs/followup_fixes.patch
+followup_fixes.patch
+certs/
