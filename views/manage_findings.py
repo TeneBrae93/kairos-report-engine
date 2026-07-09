@@ -111,8 +111,8 @@ def show_manage_findings():
                         selected_vuln['cvss'],
                         lib_host,
                         lib_path,
-                        "",
-                        "",
+                        selected_vuln.get('cvss_vector', ''),
+                        selected_vuln.get('refs', ''),
                         selected_vuln.get('steps_to_reproduce', '')
                     )
                     st.success("Imported finding from library.")
