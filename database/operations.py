@@ -114,8 +114,10 @@ def add_project(name: str, application_name: str, client_id: int, project_type: 
         INSERT INTO projects (name, application_name, client_id, project_type, start_date, end_date, report_date, tester_name, tester_description, hosts, summary_of_strengths, summary_of_weaknesses, cvss_mapping, tools_used) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (name, application_name, client_id, project_type, start_date, end_date, report_date, tester_name, tester_description, hosts, summary_of_strengths, summary_of_weaknesses, cvss_mapping, tools_used))
+    new_id = cursor.lastrowid
     conn.commit()
     conn.close()
+    return new_id
 
 def update_project(project_id: int, name: str, application_name: str, project_type: str, start_date: str, end_date: str, report_date: str, tester_name: str, tester_description: str, hosts: str, summary_of_strengths: str, summary_of_weaknesses: str, cvss_mapping: str, tools_used: str):
     conn = get_connection()

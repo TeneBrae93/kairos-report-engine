@@ -117,7 +117,7 @@ def show_manage_projects():
                 
     st.divider()
     st.subheader("Add New Project")
-    with st.form("add_project"):
+    with st.form("add_project", clear_on_submit=True):
         p_name = st.text_input("Project Name")
         p_app_name = st.text_input("Application Name (For Cover Page)")
         st.info(f"Adding new project for **{active_client_name}**")
@@ -131,7 +131,7 @@ def show_manage_projects():
         if st.form_submit_button("Add Project") and p_name:
             settings = db.get_settings()
             selected_tester = tester_options[p_tester]
-            db.add_project(
+            new_id = db.add_project(
                 name=p_name,
                 application_name=p_app_name, 
                 client_id=active_client_id, 
@@ -147,5 +147,6 @@ def show_manage_projects():
                 cvss_mapping=settings.get('cvss_mapping', ''),
                 tools_used=settings.get('tools_used', '')
             )
+            st.session_state.edit_project_id = new_id
             st.success(f"Added project: {p_name}")
             st.rerun()
