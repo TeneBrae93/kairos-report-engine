@@ -8,7 +8,7 @@ The testing was performed by {{ tester.name }}. {{ tester.description }}
 <br>
 The assessment covered the {{ client.name }} {{ project.application_name }} environment and its associated functionalities.
 
-The assessment followed a comprehensive methodology based on industry-recognized standards, including the OWASP Web Security Testing Guide (WSTG) and the Penetration Testing Execution Standard (PTES), tailored specifically to the {{ project.application_name }}.
+The assessment followed a comprehensive methodology based on industry-recognized standards, including the OWASP Web Security Testing Guide (WSTG) and the Penetration Testing Execution Standard (PTES), tailored specifically to the application.
 
 **Conclusion**
 <br>
