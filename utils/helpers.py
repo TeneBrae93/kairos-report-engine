@@ -3,6 +3,41 @@ import hashlib
 import re
 import base64
 
+import nh3
+
+RICH_TEXT_TAGS = {
+    'a', 'abbr', 'b', 'blockquote', 'br', 'code', 'del', 'div', 'em',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'hr', 'i', 'img', 'li',
+    'ol', 'p', 'pre', 's', 'span', 'strong', 'sub', 'sup', 'table',
+    'tbody', 'td', 'th', 'thead', 'tr', 'u', 'ul'
+}
+RICH_TEXT_ATTRIBUTES = {
+    '*': {'class', 'title'},
+    'a': {'href', 'target', 'title'},
+    'img': {'src', 'alt', 'title', 'width', 'height'},
+    'ol': {'start', 'type'},
+    'li': {'value'},
+    'td': {'colspan', 'rowspan'},
+    'th': {'colspan', 'rowspan'},
+}
+RICH_TEXT_URL_SCHEMES = {'data', 'http', 'https', 'mailto'}
+RICH_TEXT_DROP_CONTENT = {'embed', 'iframe', 'math', 'object', 'script', 'style', 'svg', 'template'}
+
+
+def sanitize_rich_html(html_content):
+    """Return the supported rich-text subset with executable markup removed."""
+    if not html_content:
+        return ''
+    return nh3.clean(
+        html_content,
+        tags=RICH_TEXT_TAGS,
+        attributes=RICH_TEXT_ATTRIBUTES,
+        clean_content_tags=RICH_TEXT_DROP_CONTENT,
+        url_schemes=RICH_TEXT_URL_SCHEMES,
+        strip_comments=True,
+    )
+
+
 def get_image_base64(path):
     with open(path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode()

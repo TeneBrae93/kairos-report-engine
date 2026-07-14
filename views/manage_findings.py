@@ -4,7 +4,7 @@ from database import operations as db
 from streamlit_jodit import st_jodit
 from parsers.nessus import parse_nessus
 from parsers.burp import parse_burp
-from utils.helpers import process_base64_images, restore_base64_images
+from utils.helpers import process_base64_images, restore_base64_images, sanitize_rich_html
 
 def show_manage_findings():
     st.title("Add Findings")
@@ -63,10 +63,11 @@ def show_manage_findings():
                     
                     st.markdown("**Steps to Reproduce & PoC**")
                     jodit_config = {"theme": "dark", "style": {"background": "#0e1117", "color": "#ffffff"}, "height": 400, "uploader": {"insertImageAsBase64URI": True}}
-                    e_steps = st_jodit(value=restore_base64_images(f.get('steps_to_reproduce', '')), config=jodit_config, key=f"e_steps_{f['id']}")
+                    safe_steps = sanitize_rich_html(restore_base64_images(f.get('steps_to_reproduce', '')))
+                    e_steps = st_jodit(value=safe_steps, config=jodit_config, key=f"e_steps_{f['id']}")
                     
                     if st.form_submit_button("Save Changes"):
-                        processed_steps = process_base64_images(e_steps, active_project['client_id'], project_id)
+                        processed_steps = process_base64_images(sanitize_rich_html(e_steps), active_project['client_id'], project_id)
                         db.update_project_finding(f['id'], e_title, e_sev, e_desc, e_rem, e_cvss, e_host, e_path, e_cvss_vector, e_refs, processed_steps)
                         st.success("Saved!")
                         st.rerun()
@@ -113,7 +114,7 @@ def show_manage_findings():
                         lib_path,
                         selected_vuln.get('cvss_vector', ''),
                         selected_vuln.get('refs', ''),
-                        selected_vuln.get('steps_to_reproduce', '')
+                        sanitize_rich_html(selected_vuln.get('steps_to_reproduce', ''))
                     )
                     st.success("Imported finding from library.")
                     st.rerun()
@@ -185,7 +186,7 @@ def show_manage_findings():
         mf_rem = st.text_area("Remediation")
         mf_refs = st.text_area("References (one URL per line)")
         if st.form_submit_button("Add Finding") and mf_title:
-            processed_mf_steps = process_base64_images(mf_steps, active_project['client_id'], project_id)
+            processed_mf_steps = process_base64_images(sanitize_rich_html(mf_steps), active_project['client_id'], project_id)
             db.add_project_finding(project_id, mf_title, mf_sev, mf_desc, mf_rem, mf_cvss, mf_host, mf_path, mf_cvss_vector, mf_refs, processed_mf_steps)
             st.success("Added finding.")
             st.session_state.add_finding_key += 1
