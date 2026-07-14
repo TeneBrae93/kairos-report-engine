@@ -3,6 +3,7 @@ import io
 import csv
 from database import operations as db
 from streamlit_jodit import st_jodit
+from utils.helpers import sanitize_rich_html
 
 def show_vuln_library():
     st.title("Vulnerability Library")
@@ -65,7 +66,7 @@ def show_vuln_library():
                         desc = row.get("Description", "").strip()
                         rem = row.get("Remediation", "").strip()
                         refs = row.get("References", "").strip()
-                        steps = row.get("Steps to Reproduce", "").strip()
+                        steps = sanitize_rich_html(row.get("Steps to Reproduce", "").strip())
                         
                         db.add_to_vuln_library(title, sev, desc, rem, cvss, cve, steps, svc_type, cvss_vector, refs)
                         count += 1
@@ -92,7 +93,7 @@ def show_vuln_library():
         v_rem = st.text_area("Remediation")
         v_refs = st.text_area("References (one URL per line)")
         if st.form_submit_button("Add to Library") and v_title:
-            db.add_to_vuln_library(v_title, v_sev, v_desc, v_rem, v_cvss, v_cve, v_steps, v_service_type, v_cvss_vector, v_refs)
+            db.add_to_vuln_library(v_title, v_sev, v_desc, v_rem, v_cvss, v_cve, sanitize_rich_html(v_steps), v_service_type, v_cvss_vector, v_refs)
             st.success("Added vulnerability to library.")
             st.rerun()
 
@@ -127,13 +128,13 @@ def show_vuln_library():
                 
                 st.markdown("**Steps to Reproduce**")
                 jodit_config = {"theme": "dark", "style": {"background": "#0e1117", "color": "#ffffff"}, "height": 400, "uploader": {"insertImageAsBase64URI": True}}
-                e_steps = st_jodit(value=v.get('steps_to_reproduce', ''), config=jodit_config, key=f"e_steps_{v['id']}")
+                e_steps = st_jodit(value=sanitize_rich_html(v.get('steps_to_reproduce', '')), config=jodit_config, key=f"e_steps_{v['id']}")
                 
                 e_rem = st.text_area("Remediation", value=v.get('remediation', ''))
                 e_refs = st.text_area("References (one URL per line)", value=v.get('refs', ''))
                 
                 if st.form_submit_button("Save Changes"):
-                    db.update_in_vuln_library(v['id'], e_title, e_sev, e_desc, e_rem, e_cvss, e_cve, e_steps, e_service_type, e_cvss_vector, e_refs)
+                    db.update_in_vuln_library(v['id'], e_title, e_sev, e_desc, e_rem, e_cvss, e_cve, sanitize_rich_html(e_steps), e_service_type, e_cvss_vector, e_refs)
                     st.success("Saved!")
                     st.rerun()
             
