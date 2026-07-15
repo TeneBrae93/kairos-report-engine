@@ -60,6 +60,12 @@ def generate_report(project, client, firm, findings, output_path):
         safe_type = project.get('project_type', '').replace(' ', '_').replace('/', '_')
         custom_template_path = os.path.join(template_dir, f'report_template_{safe_type}.md')
         default_template_path = os.path.join(template_dir, 'report_template.md')
+
+        # CWE-22 defense: verify resolved path stays within templates/
+        template_root = os.path.realpath(template_dir)
+        real_custom = os.path.realpath(custom_template_path)
+        if not (real_custom.startswith(template_root + os.sep) or real_custom == template_root):
+            raise ValueError("Security error: template path escapes templates/ directory")
         
         if os.path.exists(custom_template_path):
             md_template_path = custom_template_path
@@ -310,6 +316,12 @@ def generate_attestation(project, client, firm, output_path, custom_bio=None):
     try:
         template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
         md_template_path = os.path.join(template_dir, 'attestation_template.md')
+
+        # CWE-22 defense: verify resolved path stays within templates/
+        template_root = os.path.realpath(template_dir)
+        real_path = os.path.realpath(md_template_path)
+        if not (real_path.startswith(template_root + os.sep) or real_path == template_root):
+            raise ValueError("Security error: template path escapes templates/ directory")
         
         with open(md_template_path, 'r', encoding='utf-8') as f:
             md_content = f.read()
