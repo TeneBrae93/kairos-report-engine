@@ -21,7 +21,8 @@ def init_db():
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             mfa_secret TEXT,
-            mfa_enabled BOOLEAN DEFAULT 0
+            mfa_enabled BOOLEAN DEFAULT 0,
+            is_admin BOOLEAN DEFAULT 0
         )
     ''')
 
@@ -173,6 +174,19 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    # Migration: Add is_admin role column. Existing installs had no role
+    # concept at all, so we backfill the very first account (by id) as
+    # admin — that's the account that went through the "First-Time Setup"
+    # flow and is the only one that should retain elevated access.
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0")
+        cursor.execute('''
+            UPDATE users SET is_admin = 1
+            WHERE id = (SELECT MIN(id) FROM users)
+        ''')
+    except sqlite3.OperationalError:
+        pass
+
     try:
         cursor.execute("ALTER TABLE vuln_library ADD COLUMN service_type TEXT")
         cursor.execute("UPDATE vuln_library SET service_type = 'Web Application Penetration Test' WHERE service_type IS NULL")
@@ -210,16 +224,23 @@ def get_user_count():
     conn.close()
     return count
 
-def add_user(username, password_hash):
+def add_user(username, password_hash, is_admin=False):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, password_hash))
+        cursor.execute(
+            "INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)",
+            (username, password_hash, is_admin)
+        )
         conn.commit()
     except sqlite3.IntegrityError:
         raise ValueError("Username already exists")
     finally:
         conn.close()
+
+def is_user_admin(username) -> bool:
+    user = get_user(username)
+    return bool(user and user.get('is_admin'))
 
 def get_user(username):
     conn = get_connection()

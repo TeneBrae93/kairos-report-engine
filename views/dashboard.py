@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 from database import operations as db
+from database.db import get_user
 
 @st.dialog("Restore Deleted Files")
 def restore_files_dialog():
@@ -165,21 +166,40 @@ def show_dashboard():
 
     st.divider()
     st.subheader("Data Management")
-    st.write("Export your entire local database and project assets to a portable ZIP file, or recover accidentally deleted items.")
-    
-    col_dm1, col_dm2 = st.columns(2)
-    with col_dm1:
-        if st.button("Generate Backup Archive", use_container_width=True):
-            import shutil
-            shutil.make_archive('kairos_backup', 'zip', 'data')
-            st.session_state.backup_ready = True
-            st.rerun()
-            
-        if st.session_state.get('backup_ready'):
-            if os.path.exists('kairos_backup.zip'):
-                with open('kairos_backup.zip', 'rb') as f:
-                    st.download_button("Download ZIP", data=f, file_name="kairos_backup.zip", mime="application/zip", use_container_width=True)
-                    
-    with col_dm2:
+
+    current_user = get_user(st.session_state.username)
+    is_admin = bool(current_user and current_user.get('is_admin'))
+
+    if not is_admin:
+        st.info(
+            "Recycle bin recovery is available below. Full database backup "
+            "export is restricted to Administrators, since the raw database "
+            "file contains password hashes, MFA secrets, and the session "
+            "signing key."
+        )
         if st.button("Restore Deleted Files", use_container_width=True):
             restore_files_dialog()
+    else:
+        st.write("Export your entire local database and project assets to a portable ZIP file, or recover accidentally deleted items.")
+        st.warning(
+            "The backup archive contains the raw `kairos.db` file, including "
+            "password hashes, MFA secrets, and the session signing secret. "
+            "Handle downloaded backups as highly sensitive credential material."
+        )
+
+        col_dm1, col_dm2 = st.columns(2)
+        with col_dm1:
+            if st.button("Generate Backup Archive", use_container_width=True):
+                import shutil
+                shutil.make_archive('kairos_backup', 'zip', 'data')
+                st.session_state.backup_ready = True
+                st.rerun()
+
+            if st.session_state.get('backup_ready'):
+                if os.path.exists('kairos_backup.zip'):
+                    with open('kairos_backup.zip', 'rb') as f:
+                        st.download_button("Download ZIP", data=f, file_name="kairos_backup.zip", mime="application/zip", use_container_width=True)
+
+        with col_dm2:
+            if st.button("Restore Deleted Files", use_container_width=True):
+                restore_files_dialog()

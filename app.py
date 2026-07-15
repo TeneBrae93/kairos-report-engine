@@ -10,7 +10,7 @@ footer {visibility: hidden;}
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-from database.db import init_db, get_user_count
+from database.db import init_db, get_user_count, get_user
 from utils.auth import get_cookie_controller
 from utils.helpers import get_image_base64
 
@@ -40,7 +40,12 @@ def main():
     if auth_token and not st.session_state.get('logged_in') and not st.session_state.get('logged_out'):
         from utils.auth import verify_token
         verified_username = verify_token(auth_token)
-        if verified_username:
+        # A valid HMAC signature only proves the token was signed with our
+        # secret; it does NOT prove the account still exists (or ever
+        # existed). Anyone holding the signing secret could otherwise mint
+        # a session for an arbitrary/nonexistent username. Always confirm
+        # the account is real before trusting the session.
+        if verified_username and get_user(verified_username):
             st.session_state.logged_in = True
             st.session_state.username = verified_username
         else:
@@ -56,11 +61,18 @@ def main():
     logo_b64 = get_image_base64("assets/KairosSecLogo.png")
     st.sidebar.markdown(f'<a href="https://kairos-sec.com" target="_blank"><img src="data:image/png;base64,{logo_b64}" alt="Kairos Sec" width="75%" style="margin-bottom: 20px;"></a>', unsafe_allow_html=True)
     st.sidebar.title("Kairos Report Engine")
-    menu = ["Dashboard", "Manage Projects", "Add Findings", "Vuln Library", "Generate Report", "Templates", "Profile", "Admin: Users", "Logout"]
-    
-    if "nav" not in st.session_state:
+
+    current_user = get_user(st.session_state.username)
+    is_admin = bool(current_user and current_user.get('is_admin'))
+
+    menu = ["Dashboard", "Manage Projects", "Add Findings", "Vuln Library", "Generate Report", "Templates", "Profile"]
+    if is_admin:
+        menu.append("Admin: Users")
+    menu.append("Logout")
+
+    if "nav" not in st.session_state or st.session_state.nav not in menu:
         st.session_state.nav = "Dashboard"
-        
+
     choice = st.sidebar.radio("Navigation", menu, index=menu.index(st.session_state.nav))
     if choice != st.session_state.nav:
         if choice == "Logout":
@@ -85,7 +97,10 @@ def main():
     elif st.session_state.nav == "Profile":
         show_profile()
     elif st.session_state.nav == "Admin: Users":
-        show_admin_users()
+        if is_admin:
+            show_admin_users()
+        else:
+            st.error("You do not have permission to view this page.")
 
 if __name__ == "__main__":
     main()
