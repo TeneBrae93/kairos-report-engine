@@ -3,6 +3,9 @@
 **This application is currently in early development (prototype stage).**
 A formal security assessment is still ongoing. You should only run this application locally or on a trusted, secure network. **It MUST NOT be exposed to the public internet.**
 
+### Support
+This is open source and free. Do not contact me if you can't get it working, I don't have time to provide support for this. Review the code, and open a PR. I made this primarily for me but made it open source to help others... but I do not provide support. Use at your own risk, no warranty
+
 ## Kairos Report Engine
 Kairos Report Engine is a web application designed to streamline penetration testing project management, vulnerability tracking, and automated report generation. 
 
