@@ -1,6 +1,5 @@
 import streamlit as st
 import os
-import uuid
 from database import operations as db
 from streamlit_jodit import st_jodit
 from parsers.nessus import parse_nessus
@@ -132,16 +131,7 @@ def show_manage_findings():
         
         if uploaded_file is not None:
             if st.button("Parse & Import Findings"):
-                # Use UUID-based filename to prevent path traversal (CWE-22)
-                temp_path = f"data/upload_{uuid.uuid4().hex}"
-
-                # Defense-in-depth: verify resolved path stays within data/
-                data_root = os.path.realpath("data")
-                real_temp = os.path.realpath(temp_path)
-                if not (real_temp.startswith(data_root + os.sep) or real_temp == data_root):
-                    st.error("Security error: upload path escapes data/ directory")
-                    return
-
+                temp_path = f"data/temp_{uploaded_file.name}"
                 with open(temp_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
                     
