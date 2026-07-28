@@ -141,7 +141,14 @@ Testing was performed under the strict Rules of Engagement provided by {{ client
 ## Scope 
 The list of hosts covered by this assessment included: 
 
-{{ project.hosts }}
+{% if project.hosts %}
+{% set scope_hosts = project.hosts.split('\n') %}
+{% for sh in scope_hosts %}
+{% if sh.strip() %}
+- {{ sh.strip() }}
+{% endif %}
+{% endfor %}
+{% endif %}
 
 </div>
 
