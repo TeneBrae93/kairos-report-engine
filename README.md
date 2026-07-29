@@ -5,9 +5,6 @@ You should only run this application locally or on a trusted, secure network. **
 ### Support
 This is open source and free. Do not contact me if you can't get it working, I don't have time to provide support for this. Review the code, and open a PR. I made this primarily for me but made it open source to help others... but I do not provide support. Use at your own risk, no warranty
 
-#### Bug Bounty
-I was temporarily doing a basic bug bounty for the Hack Smarter community (valid bugs get vouchers). As of today (7/18) this is discontinued due to lack of time. App is only meant to run locally and never be exposed to the internet.
-
 ## Kairos Report Engine
 Kairos Report Engine is a web application designed to streamline penetration testing project management, vulnerability tracking, and automated report generation. 
 
