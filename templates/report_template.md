@@ -188,8 +188,7 @@ demonstrated a strong and mature security posture.
 ## Summary of Weaknesses
 
 The assessment identified several security weaknesses that increase the organization's overall
-risk exposure. The top security themes, which allowed for the most severe compromises, are
-summarized below:
+risk exposure. The top security themes are summarized below:
 
 {{ firm.summary_of_weaknesses }}
 {% endif %}
