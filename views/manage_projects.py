@@ -32,6 +32,7 @@ def show_manage_projects():
         "Web Application Penetration Test",
         "Internal Network Penetration Test",
         "External Network Penetration Test",
+        "Network Vulnerability Scan",
         "AI/LLM Penetration Test",
         "Cloud Penetration Test"
     ]
@@ -58,6 +59,14 @@ def show_manage_projects():
                 
                 ep_type_idx = PROJECT_TYPES.index(p.get('project_type', 'Web Application Penetration Test')) if p.get('project_type', 'Web Application Penetration Test') in PROJECT_TYPES else 0
                 ep_type = st.selectbox("Project Type", PROJECT_TYPES, index=ep_type_idx)
+                
+                ep_is_whitelabel = st.checkbox("Whitelabel Project", value=bool(p.get('is_whitelabel', False)), key=f"wl_{p['id']}")
+                ep_whitelabel_firm_name = ""
+                ep_whitelabel_firm_website = ""
+                if ep_is_whitelabel:
+                    ep_whitelabel_firm_name = st.text_input("Whitelabel Firm Name", value=p.get('whitelabel_firm_name', ''), key=f"wlf_{p['id']}")
+                    ep_whitelabel_firm_website = st.text_input("Whitelabel Firm Website", value=p.get('whitelabel_firm_website', ''), key=f"wlfw_{p['id']}")
+                    
                 col_s, col_e, col_r = st.columns(3)
                 ep_start = col_s.text_input("Start Date", value=p.get('start_date', ''))
                 ep_end = col_e.text_input("End Date", value=p.get('end_date', ''))
@@ -104,7 +113,7 @@ def show_manage_projects():
                     cleaned_t_list = [t for t in edited_t_list if t.get("Name") or t.get("Description")]
                     t_used_json = json.dumps(cleaned_t_list)
                     selected_tester = tester_options[ep_tester]
-                    db.update_project(p['id'], ep_name, ep_app_name, ep_type, ep_start, ep_end, ep_report_date, selected_tester['name'], selected_tester['bio'], p_hosts, s_strengths, s_weaknesses, p.get('cvss_mapping', ''), t_used_json)
+                    db.update_project(p['id'], ep_name, ep_app_name, ep_type, ep_start, ep_end, ep_report_date, selected_tester['name'], selected_tester['bio'], p_hosts, s_strengths, s_weaknesses, p.get('cvss_mapping', ''), t_used_json, ep_is_whitelabel, ep_whitelabel_firm_name, ep_whitelabel_firm_website)
                     if save_as_default:
                         db.update_setting('summary_of_strengths', s_strengths)
                         db.update_setting('summary_of_weaknesses', s_weaknesses)
@@ -122,6 +131,13 @@ def show_manage_projects():
         p_app_name = st.text_input("Application Name (For Cover Page)")
         st.info(f"Adding new project for **{active_client_name}**")
         p_type = st.selectbox("Project Type", PROJECT_TYPES)
+        p_is_whitelabel = st.checkbox("Whitelabel Project")
+        p_whitelabel_firm_name = ""
+        p_whitelabel_firm_website = ""
+        if p_is_whitelabel:
+            p_whitelabel_firm_name = st.text_input("Whitelabel Firm Name")
+            p_whitelabel_firm_website = st.text_input("Whitelabel Firm Website")
+            
         p_tester = st.selectbox("Assigned Tester", list(tester_options.keys()))
         col_s, col_e, col_r = st.columns(3)
         p_start = col_s.date_input("Start Date").strftime('%Y-%m-%d')
@@ -145,7 +161,10 @@ def show_manage_projects():
                 summary_of_strengths=settings.get('summary_of_strengths', ''),
                 summary_of_weaknesses=settings.get('summary_of_weaknesses', ''),
                 cvss_mapping=settings.get('cvss_mapping', ''),
-                tools_used=settings.get('tools_used', '')
+                tools_used=settings.get('tools_used', ''),
+                is_whitelabel=p_is_whitelabel,
+                whitelabel_firm_name=p_whitelabel_firm_name,
+                whitelabel_firm_website=p_whitelabel_firm_website
             )
             st.session_state.edit_project_id = new_id
             st.success(f"Added project: {p_name}")

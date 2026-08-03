@@ -126,9 +126,11 @@ def show_dashboard():
         c_f1, c_f2 = st.columns(2)
         firm_name = c_f1.text_input("Firm Name", value=settings.get('firm_name', 'Default Firm'))
         firm_website = c_f2.text_input("Firm Website", value=settings.get('firm_website', ''))
+        gemini_api_key = st.text_input("Gemini API Key (Optional)", type="password", value=settings.get('gemini_api_key', ''), help="Provide a Google Gemini API Key to enable AI-powered finding enhancement during scanner imports.")
         if st.form_submit_button("Save Firm Settings"):
             db.update_setting('firm_name', firm_name)
             db.update_setting('firm_website', firm_website)
+            db.update_setting('gemini_api_key', gemini_api_key)
             st.success("Firm Settings updated!")
             st.rerun()
 

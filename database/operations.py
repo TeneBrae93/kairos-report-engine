@@ -107,26 +107,26 @@ def get_deleted_projects() -> list[dict]:
     conn.close()
     return projects
 
-def add_project(name: str, application_name: str, client_id: int, project_type: str = 'Web Application Penetration Test', start_date: str = '', end_date: str = '', report_date: str = '', tester_name: str = '', tester_description: str = '', hosts: str = '', summary_of_strengths: str = '', summary_of_weaknesses: str = '', cvss_mapping: str = '', tools_used: str = ''):
+def add_project(name: str, application_name: str, client_id: int, project_type: str = 'Web Application Penetration Test', start_date: str = '', end_date: str = '', report_date: str = '', tester_name: str = '', tester_description: str = '', hosts: str = '', summary_of_strengths: str = '', summary_of_weaknesses: str = '', cvss_mapping: str = '', tools_used: str = '', is_whitelabel: bool = False, whitelabel_firm_name: str = '', whitelabel_firm_website: str = ''):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO projects (name, application_name, client_id, project_type, start_date, end_date, report_date, tester_name, tester_description, hosts, summary_of_strengths, summary_of_weaknesses, cvss_mapping, tools_used) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (name, application_name, client_id, project_type, start_date, end_date, report_date, tester_name, tester_description, hosts, summary_of_strengths, summary_of_weaknesses, cvss_mapping, tools_used))
+        INSERT INTO projects (name, application_name, client_id, project_type, start_date, end_date, report_date, tester_name, tester_description, hosts, summary_of_strengths, summary_of_weaknesses, cvss_mapping, tools_used, is_whitelabel, whitelabel_firm_name, whitelabel_firm_website) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (name, application_name, client_id, project_type, start_date, end_date, report_date, tester_name, tester_description, hosts, summary_of_strengths, summary_of_weaknesses, cvss_mapping, tools_used, 1 if is_whitelabel else 0, whitelabel_firm_name, whitelabel_firm_website))
     new_id = cursor.lastrowid
     conn.commit()
     conn.close()
     return new_id
 
-def update_project(project_id: int, name: str, application_name: str, project_type: str, start_date: str, end_date: str, report_date: str, tester_name: str, tester_description: str, hosts: str, summary_of_strengths: str, summary_of_weaknesses: str, cvss_mapping: str, tools_used: str):
+def update_project(project_id: int, name: str, application_name: str, project_type: str, start_date: str, end_date: str, report_date: str, tester_name: str, tester_description: str, hosts: str, summary_of_strengths: str, summary_of_weaknesses: str, cvss_mapping: str, tools_used: str, is_whitelabel: bool, whitelabel_firm_name: str, whitelabel_firm_website: str):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE projects 
-        SET name = ?, application_name = ?, project_type = ?, start_date = ?, end_date = ?, report_date = ?, tester_name = ?, tester_description = ?, hosts = ?, summary_of_strengths = ?, summary_of_weaknesses = ?, cvss_mapping = ?, tools_used = ?
+        SET name = ?, application_name = ?, project_type = ?, start_date = ?, end_date = ?, report_date = ?, tester_name = ?, tester_description = ?, hosts = ?, summary_of_strengths = ?, summary_of_weaknesses = ?, cvss_mapping = ?, tools_used = ?, is_whitelabel = ?, whitelabel_firm_name = ?, whitelabel_firm_website = ?
         WHERE id = ?
-    """, (name, application_name, project_type, start_date, end_date, report_date, tester_name, tester_description, hosts, summary_of_strengths, summary_of_weaknesses, cvss_mapping, tools_used, project_id))
+    """, (name, application_name, project_type, start_date, end_date, report_date, tester_name, tester_description, hosts, summary_of_strengths, summary_of_weaknesses, cvss_mapping, tools_used, 1 if is_whitelabel else 0, whitelabel_firm_name, whitelabel_firm_website, project_id))
     conn.commit()
     conn.close()
 

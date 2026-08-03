@@ -171,11 +171,8 @@ def generate_report(project, client, firm, findings, output_path):
         
         detailed_findings_md = """
 {% for finding in findings %}
-{% if not loop.first %}
-<div style="page-break-before: always;"></div>
-{% endif %}
 
-<div style="page-break-inside: avoid;" markdown="1">
+<div style="{% if not loop.first %}page-break-before: always;{% endif %}" markdown="1">
 ### <a name="{{ finding.anchor }}"></a>{{ finding.title }}
 
 <div style="margin-bottom: 10px;">
@@ -187,7 +184,8 @@ def generate_report(project, client, firm, findings, output_path):
 {% endif %}
 {% if finding.host %}
 {% set hosts = finding.host.split(',') %}
-{% if hosts|length > 1 %}**Affected Hosts:**
+{% if hosts|length > 5 %}**Affected Hosts:** {{ finding.host }}<br>
+{% elif hosts|length > 1 %}**Affected Hosts:**
 {% for h in hosts %}
 - {{ h.strip() }}
 {% endfor %}
@@ -230,6 +228,12 @@ def generate_report(project, client, firm, findings, output_path):
         template = env.from_string(md_content)
         
         firm_dict = dict(firm)
+        if project.get('is_whitelabel'):
+            if project.get('whitelabel_firm_name'):
+                firm_dict['firm_name'] = project.get('whitelabel_firm_name')
+            if project.get('whitelabel_firm_website'):
+                firm_dict['firm_website'] = project.get('whitelabel_firm_website')
+            
         firm_dict['summary_of_strengths'] = project.get('summary_of_strengths', firm_dict.get('summary_of_strengths', ''))
         firm_dict['summary_of_weaknesses'] = project.get('summary_of_weaknesses', firm_dict.get('summary_of_weaknesses', ''))
         firm_dict['cvss_mapping'] = project.get('cvss_mapping', firm_dict.get('cvss_mapping', ''))
@@ -259,9 +263,9 @@ def generate_report(project, client, firm, findings, output_path):
                 tools_html += "</table>\n</div>"
                 project['tools_used_table'] = tools_html
             else:
-                project['tools_used_table'] = tools_str.replace('\n', '<br>')
+                project['tools_used_table'] = tools_str.replace('\n', '<br>') if tools_str and tools_str != '[]' else ''
         except Exception:
-            project['tools_used_table'] = tools_str.replace('\n', '<br>')
+            project['tools_used_table'] = tools_str.replace('\n', '<br>') if tools_str and tools_str != '[]' else ''
             
         rendered_md = template.render(
             project=project,
@@ -305,7 +309,9 @@ def generate_attestation(project, client, firm, output_path, custom_bio=None):
         project['start_date_formatted'] = format_date_with_suffix(project.get('start_date', ''))
         project['end_date_formatted'] = format_date_with_suffix(project.get('end_date', ''))
 
-        firm_dict = {f.get('key'): f.get('value') for f in firm} if isinstance(firm, list) else firm
+        firm_dict = {f.get('key'): f.get('value') for f in firm} if isinstance(firm, list) else dict(firm)
+        if project.get('is_whitelabel') and project.get('whitelabel_firm_name'):
+            firm_dict['firm_name'] = project.get('whitelabel_firm_name')
 
         from database import operations as db
         tester = {

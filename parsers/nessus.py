@@ -21,8 +21,10 @@ def parse_nessus(file_path: str) -> list[dict]:
             
             # Find all report items (vulnerabilities) for this host
             for item in report_host.findall('ReportItem'):
+                title = item.attrib.get('pluginName', 'Unknown Plugin')
                 severity_val = item.attrib.get('severity', '0')
-                if severity_val == '0':
+                
+                if severity_val == '0' and title != 'HSTS Missing From HTTPS Server' and 'SSH' not in title:
                     continue
                 
                 # We usually ignore severity 0 (Info) for vulnerabilities,
@@ -35,8 +37,6 @@ def parse_nessus(file_path: str) -> list[dict]:
                     '4': 'Critical'
                 }
                 severity = severity_map.get(severity_val, 'Unknown')
-                
-                title = item.attrib.get('pluginName', 'Unknown Plugin')
                 
                 # Fetch text nodes
                 desc_el = item.find('description')
@@ -71,13 +71,8 @@ def parse_nessus(file_path: str) -> list[dict]:
         findings = []
         for title, data in findings_map.items():
             hosts = data['hosts']
-            if len(hosts) > 1:
-                final_host = "Multiple Assets"
-                host_list = "\n".join([f"- {h}" for h in hosts])
-                final_desc = f"**Affected Assets:**\n{host_list}\n\n{data['description']}"
-            else:
-                final_host = hosts[0]
-                final_desc = data['description']
+            final_host = ", ".join(hosts)
+            final_desc = data['description']
                 
             findings.append({
                 'host': final_host,

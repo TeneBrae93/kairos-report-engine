@@ -73,6 +73,8 @@ def init_db():
             summary_of_weaknesses TEXT,
             cvss_mapping TEXT,
             tools_used TEXT,
+            is_whitelabel INTEGER DEFAULT 0,
+            whitelabel_firm_name TEXT,
             FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
         )
     ''')
@@ -163,6 +165,18 @@ def init_db():
     # Migration: Add project_type to projects
     try:
         cursor.execute("ALTER TABLE projects ADD COLUMN project_type TEXT DEFAULT 'Web Application Penetration Test'")
+    except sqlite3.OperationalError:
+        pass
+        
+    # Migration: Add whitelabel columns to projects
+    try:
+        cursor.execute("ALTER TABLE projects ADD COLUMN is_whitelabel INTEGER DEFAULT 0")
+        cursor.execute("ALTER TABLE projects ADD COLUMN whitelabel_firm_name TEXT")
+    except sqlite3.OperationalError:
+        pass
+        
+    try:
+        cursor.execute("ALTER TABLE projects ADD COLUMN whitelabel_firm_website TEXT")
     except sqlite3.OperationalError:
         pass
         

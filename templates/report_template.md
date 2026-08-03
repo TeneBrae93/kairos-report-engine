@@ -35,9 +35,9 @@
 # Executive Summary
 
 ## Introduction
-The Assessment Team at {{ firm.firm_name }} is pleased to present the results of the {{ project.project_type }}
-for {{ client.name }}. This assessment was performed by {{ tester.name }}.
-{{ tester.name }} is {{ tester.description }}
+The Assessment Team at {{ firm.firm_name }} is pleased to present the results of the {{ project.project_type }} for {{ client.name }}.{% if tester.name %} This assessment was performed by {{ tester.name }}.
+
+{{ tester.name }} is {{ tester.description }}{% endif %}
 
 ## Methodology and Approach
 {% if project.project_type == 'Web Application Penetration Test' or not project.project_type %}
@@ -134,6 +134,30 @@ The assessment followed a comprehensive methodology based on industry-recognized
 **4. Post-Exploitation:** Demonstrating the potential business impact of a successful breach, including unauthorized data access, lateral movement between cloud services, and potential compromise of the control plane.
 
 Testing was performed under the strict Rules of Engagement provided by {{ client.name }} to ensure the stability of the production environment. This report details the high-level findings and provides strategic recommendations to address the identified risks.
+
+{% elif project.project_type == 'Network Vulnerability Scan' %}
+A vulnerability assessment was conducted on the organization's internal network environment
+between {{ project.start_date_formatted }} and {{ project.end_date_formatted }}. The objective of this vulnerability assessment was to
+systematically identify, categorize, and prioritize security weaknesses that could be leveraged
+by a threat actor. Unlike a penetration test, this assessment focused on surface-area coverage
+and risk identification rather than active exploitation.
+
+The assessment followed a structured methodology based on industry-recognized standards,
+such as the NIST Cybersecurity Framework and OWASP. Key phases of the engagement
+included:
+
+**1. Network Discovery:** Mapping the internal environment to identify active hosts,
+operating systems, and running services to establish an accurate asset inventory.
+
+**2. Vulnerability Scanning:** Utilizing automated tools and manual inspection to detect
+unpatched software, known vulnerabilities (CVEs), and insecure service configurations.
+
+**3. Configuration Review:** Analyzing system settings and network protocols against
+security best practices to identify misconfigurations that increase the attack surface.
+
+**4. Risk Prioritization:** Evaluating identified vulnerabilities based on their severity,
+exploitability, and potential impact on the confidentiality, integrity, and availability of
+sensitive data.
 {% endif %}
 
 <div style="page-break-inside: avoid;" markdown="1">
@@ -152,12 +176,15 @@ The list of hosts covered by this assessment included:
 
 </div>
 
+{% if firm.summary_of_strengths %}
 ## Summary of Strengths
 Despite the identified vulnerabilities, the assessment noted several areas where {{ client.name }}
 demonstrated a strong and mature security posture.
 
 {{ firm.summary_of_strengths }}
+{% endif %}
 
+{% if firm.summary_of_weaknesses %}
 ## Summary of Weaknesses
 
 The assessment identified several security weaknesses that increase the organization's overall
@@ -165,6 +192,7 @@ risk exposure. The top security themes, which allowed for the most severe compro
 summarized below:
 
 {{ firm.summary_of_weaknesses }}
+{% endif %}
 
 ## Summary of Findings
 A total of {{ findings|length }} issues were identified during this assessment. Risk ratings were assigned based on their Common Vulnerability Scoring System (CVSS) base score using the following mapping. 
@@ -230,15 +258,13 @@ configuration details that don't pose a vulnerability on their own but are noted
 
 {{ project.findings_chart }}
 
-<div style="page-break-before: always;"></div>
-
 # Detailed Findings
 
 {{ findings.detailed_findings }}
 
-<div style="page-break-before: always;"></div>
-
+{% if project.tools_used_table %}
 # Appendices
 
 ## Appendix A: Tools Used
 {{ project.tools_used_table }}
+{% endif %}

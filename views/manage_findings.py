@@ -144,6 +144,15 @@ def show_manage_findings():
         else:
             uploaded_file = st.file_uploader("Upload Burp XML File", type=['xml'])
             parser_func = parse_burp
+            
+        settings = db.get_settings()
+        gemini_api_key = settings.get('gemini_api_key', '')
+        
+        enhance_with_ai = False
+        if gemini_api_key:
+            enhance_with_ai = st.checkbox("Enhance findings with AI (Gemini)", value=True)
+        else:
+            st.info("💡 To enable AI-powered finding enhancement, add your Gemini API Key in the Dashboard settings.")
         
         if uploaded_file is not None:
             if st.button("Parse & Import Findings"):
@@ -154,6 +163,29 @@ def show_manage_findings():
                 try:
                     findings = parser_func(temp_path)
                     st.success(f"Parsed {len(findings)} findings.")
+                    
+                    if enhance_with_ai and gemini_api_key:
+                        from utils.ai import enhance_finding_with_ai
+                        import concurrent.futures
+                        
+                        progress_text = "Enhancing findings with AI... This may take a moment."
+                        progress_bar = st.progress(0, text=progress_text)
+                        
+                        enhanced_findings = []
+                        total = len(findings)
+                        
+                        if total > 0:
+                            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                                future_to_finding = {executor.submit(enhance_finding_with_ai, f, gemini_api_key): f for f in findings}
+                                completed = 0
+                                for future in concurrent.futures.as_completed(future_to_finding):
+                                    enhanced_findings.append(future.result())
+                                    completed += 1
+                                    progress_bar.progress(completed / total, text=f"Enhanced {completed}/{total} findings...")
+                            
+                            findings = enhanced_findings
+                            st.success("AI Enhancement Complete!")
+                    
                     for f in findings:
                         db.add_project_finding(
                             project_id, 
@@ -164,9 +196,9 @@ def show_manage_findings():
                             f['cvss'], 
                             f['host'],
                             f.get('path', ''),
-                            '',
-                            '',
-                            ''
+                            f.get('cvss_vector', ''),
+                            f.get('refs', ''),
+                            f.get('steps_to_reproduce', '')
                         )
                     st.success("Successfully added all findings to project!")
                     st.rerun()
