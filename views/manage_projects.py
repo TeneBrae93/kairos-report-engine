@@ -1,6 +1,8 @@
 import streamlit as st
 import json
 from database import operations as db
+from streamlit_jodit import st_jodit
+from utils.helpers import sanitize_rich_html, restore_base64_images, process_base64_images
 
 @st.dialog("Confirm Deletion")
 def delete_project_dialog(project_id, project_name):
@@ -81,6 +83,12 @@ def show_manage_projects():
                 
                 ep_tester = st.selectbox("Assigned Tester", tester_names, index=ep_tester_idx)
                 p_hosts = st.text_area("Scope / Hosts", value=p.get('hosts', '') or '')
+                
+                st.markdown("#### Attack Narrative")
+                jodit_config = {"theme": "dark", "style": {"background": "#0e1117", "color": "#ffffff"}, "height": 400, "uploader": {"insertImageAsBase64URI": True}}
+                safe_narrative = sanitize_rich_html(restore_base64_images(p.get('attack_narrative', '')))
+                e_narrative = st_jodit(value=safe_narrative, config=jodit_config, key=f"e_narrative_{p['id']}")
+                
                 s_strengths = st.text_area("Summary of Strengths", value=p.get('summary_of_strengths', '') or '', height=150)
                 s_weaknesses = st.text_area("Summary of Weaknesses", value=p.get('summary_of_weaknesses', '') or '', height=150)
                 
@@ -107,13 +115,42 @@ def show_manage_projects():
                     key=f"te_{p['id']}"
                 )
                 
+                st.markdown("#### Appendices")
+                app_str = p.get('appendices', '[]')
+                try:
+                    a_list = json.loads(app_str) if app_str else []
+                    if not isinstance(a_list, list):
+                        a_list = []
+                except Exception:
+                    a_list = []
+                    
+                if not a_list:
+                    a_list = [{"Title": "", "Content": ""}]
+                
+                edited_a_list = st.data_editor(
+                    a_list, 
+                    column_config={
+                        "Title": st.column_config.TextColumn("Appendix Title", width="medium", required=True),
+                        "Content": st.column_config.TextColumn("Content (Markdown)", width="large", required=True)
+                    },
+                    num_rows="dynamic", 
+                    use_container_width=True, 
+                    key=f"ae_{p['id']}"
+                )
+                
                 save_as_default = st.checkbox("Save these report details as Firm Defaults for future projects", key=f"sad_{p['id']}")
                 
                 if st.form_submit_button("Save Project details"):
                     cleaned_t_list = [t for t in edited_t_list if t.get("Name") or t.get("Description")]
                     t_used_json = json.dumps(cleaned_t_list)
+                    
+                    cleaned_a_list = [a for a in edited_a_list if a.get("Title") or a.get("Content")]
+                    appendices_json = json.dumps(cleaned_a_list)
+                    
+                    processed_narrative = process_base64_images(sanitize_rich_html(e_narrative), active_client_id, p['id'])
+                    
                     selected_tester = tester_options[ep_tester]
-                    db.update_project(p['id'], ep_name, ep_app_name, ep_type, ep_start, ep_end, ep_report_date, selected_tester['name'], selected_tester['bio'], p_hosts, s_strengths, s_weaknesses, p.get('cvss_mapping', ''), t_used_json, ep_is_whitelabel, ep_whitelabel_firm_name, ep_whitelabel_firm_website)
+                    db.update_project(p['id'], ep_name, ep_app_name, ep_type, ep_start, ep_end, ep_report_date, selected_tester['name'], selected_tester['bio'], p_hosts, s_strengths, s_weaknesses, p.get('cvss_mapping', ''), t_used_json, ep_is_whitelabel, ep_whitelabel_firm_name, ep_whitelabel_firm_website, appendices_json, processed_narrative)
                     if save_as_default:
                         db.update_setting('summary_of_strengths', s_strengths)
                         db.update_setting('summary_of_weaknesses', s_weaknesses)
@@ -164,7 +201,9 @@ def show_manage_projects():
                 tools_used=settings.get('tools_used', ''),
                 is_whitelabel=p_is_whitelabel,
                 whitelabel_firm_name=p_whitelabel_firm_name,
-                whitelabel_firm_website=p_whitelabel_firm_website
+                whitelabel_firm_website=p_whitelabel_firm_website,
+                appendices='',
+                attack_narrative=''
             )
             st.session_state.edit_project_id = new_id
             st.success(f"Added project: {p_name}")

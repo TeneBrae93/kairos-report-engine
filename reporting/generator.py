@@ -267,6 +267,15 @@ def generate_report(project, client, firm, findings, output_path):
         except Exception:
             project['tools_used_table'] = tools_str.replace('\n', '<br>') if tools_str and tools_str != '[]' else ''
             
+        app_str = project.get('appendices', '[]')
+        try:
+            app_list = json.loads(app_str) if app_str else []
+            if not isinstance(app_list, list):
+                app_list = []
+        except Exception:
+            app_list = []
+        project['appendices_list'] = app_list
+            
         rendered_md = template.render(
             project=project,
             client=client,

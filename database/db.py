@@ -180,6 +180,16 @@ def init_db():
     except sqlite3.OperationalError:
         pass
         
+    try:
+        cursor.execute("ALTER TABLE projects ADD COLUMN appendices TEXT")
+    except sqlite3.OperationalError:
+        pass
+        
+    try:
+        cursor.execute("ALTER TABLE projects ADD COLUMN attack_narrative TEXT")
+    except sqlite3.OperationalError:
+        pass
+        
     # Migration: Add brute force protection to users
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER DEFAULT 0")

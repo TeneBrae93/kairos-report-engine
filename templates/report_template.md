@@ -176,6 +176,14 @@ The list of hosts covered by this assessment included:
 
 </div>
 
+{% if project.attack_narrative %}
+## Attack Narrative
+
+<div class="markdown-content">
+{{ project.attack_narrative | safe }}
+</div>
+{% endif %}
+
 {% if firm.summary_of_strengths %}
 ## Summary of Strengths
 Despite the identified vulnerabilities, the assessment noted several areas where {{ client.name }}
@@ -261,9 +269,25 @@ configuration details that don't pose a vulnerability on their own but are noted
 
 {{ findings.detailed_findings }}
 
-{% if project.tools_used_table %}
+{% set has_tools = project.tools_used_table %}
+{% if has_tools or project.appendices_list %}
 # Appendices
 
+{% if has_tools %}
 ## Appendix A: Tools Used
 {{ project.tools_used_table }}
+{% endif %}
+
+{% set base_idx = 1 if has_tools else 0 %}
+{% set alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' %}
+{% for app in project.appendices_list %}
+{% if has_tools or not loop.first %}
+<div style="page-break-before: always;"></div>
+{% endif %}
+
+## Appendix {{ alphabet[base_idx + loop.index0] }}: {{ app.Title }}
+
+{{ app.Content }}
+
+{% endfor %}
 {% endif %}
