@@ -2,7 +2,9 @@ import streamlit as st
 import os
 import base64
 from database import operations as db
-from reporting.generator import generate_report, generate_attestation
+from reporting.generator import generate_report, generate_attestation, get_rendered_attestation_markdown
+from streamlit_jodit import st_jodit
+from utils.helpers import sanitize_rich_html, restore_base64_images, process_base64_images
 
 def show_generate_report():
     st.title("Generate Report")
@@ -42,10 +44,33 @@ def show_generate_report():
                 if db_tester:
                     default_bio = db_tester.get('bio', '')
         
+        use_custom = project.get('use_custom_attestation', False)
+        use_custom_checkbox = st.checkbox("Use Custom Full Letter", value=use_custom, help="When enabled, the entire letter below will be used instead of the standard template.")
+        
+        # We need the client and firm to render the default markdown
+        clients = db.get_clients()
+        client = next((c for c in clients if c['id'] == project['client_id']), None)
+        firm = db.get_settings()
+        
+        custom_letter = project.get('custom_attestation', '')
+        if not custom_letter:
+            try:
+                template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
+                md_template_path = os.path.join(template_dir, 'attestation_template.md')
+                with open(md_template_path, 'r', encoding='utf-8') as f:
+                    custom_letter = f.read()
+            except Exception:
+                custom_letter = ""
+        
         with st.form(f"attestation_customization_form_{project['id']}"):
-            attestation_bio = st.text_area("Tester Bio for Attestation Letter", value=default_bio, height=150)
+            attestation_bio = st.text_area("Tester Bio for Attestation Letter (Used only if Custom Letter is OFF)", value=default_bio, height=150)
+            
+            st.markdown("#### Custom Full Letter Editor")
+            st.info("You can edit the raw template directly. Jinja variables (like `{{ client.name }}`) are supported and will be rendered when you generate the letter.")
+            e_custom_letter = st.text_area("Template Code", value=custom_letter, height=500)
+            
             if st.form_submit_button("Save Customization"):
-                db.update_project_attestation_bio(project['id'], attestation_bio)
+                db.update_project_attestation_customization(project['id'], attestation_bio, use_custom_checkbox, e_custom_letter)
                 st.success("Customization saved!")
                 st.rerun()
     

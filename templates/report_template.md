@@ -177,11 +177,15 @@ The list of hosts covered by this assessment included:
 </div>
 
 {% if project.attack_narrative %}
+<div style="page-break-before: always;"></div>
+
 ## Attack Narrative
 
 <div class="markdown-content">
 {{ project.attack_narrative | safe }}
 </div>
+
+<div style="page-break-before: always;"></div>
 {% endif %}
 
 {% if firm.summary_of_strengths %}

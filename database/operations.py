@@ -130,10 +130,10 @@ def update_project(project_id: int, name: str, application_name: str, project_ty
     conn.commit()
     conn.close()
 
-def update_project_attestation_bio(project_id: int, attestation_bio: str):
+def update_project_attestation_customization(project_id: int, attestation_bio: str, use_custom_attestation: bool, custom_attestation: str):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE projects SET attestation_bio = ? WHERE id = ?", (attestation_bio, project_id))
+    cursor.execute("UPDATE projects SET attestation_bio = ?, use_custom_attestation = ?, custom_attestation = ? WHERE id = ?", (attestation_bio, 1 if use_custom_attestation else 0, custom_attestation, project_id))
     conn.commit()
     conn.close()
 

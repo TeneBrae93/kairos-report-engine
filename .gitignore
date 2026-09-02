@@ -47,3 +47,10 @@ followup_fixes.patch
 certs/
 *.zip
 *.log
+
+# Ignore all database files anywhere in the project
+*.db
+
+# Ignore test files and generated PDFs
+test_*.py
+*.pdf

@@ -276,6 +276,14 @@ def generate_report(project, client, firm, findings, output_path):
             app_list = []
         project['appendices_list'] = app_list
             
+        # Handle empty Jodit outputs for optional fields
+        for field in ['attack_narrative', 'summary_of_strengths', 'summary_of_weaknesses']:
+            val = project.get(field, '')
+            if val and val.strip() in ['<p><br></p>', '<p></p>', '<br>']:
+                project[field] = None
+                if field in firm_dict:
+                    firm_dict[field] = None
+
         rendered_md = template.render(
             project=project,
             client=client,
@@ -287,6 +295,14 @@ def generate_report(project, client, firm, findings, output_path):
         
         # Convert generated markdown into HTML
         report_html_body = markdown.markdown(rendered_md, extensions=['fenced_code', 'tables', 'md_in_html', 'toc', 'attr_list'])
+        
+        # Keep images and their subsequent paragraph (caption) on the same page
+        report_html_body = re.sub(
+            r'(<p>\s*<img[^>]+>\s*</p>)\s*(<p>(?:(?!<img).)*?</p>)',
+            r'<div style="page-break-inside: avoid;">\n\1\n\2\n</div>',
+            report_html_body,
+            flags=re.DOTALL
+        )
         
         # Load the HTML wrapper
         html_env = Environment(loader=FileSystemLoader(template_dir))
@@ -303,48 +319,61 @@ def generate_report(project, client, firm, findings, output_path):
         logger.error(f"Failed to generate report: {e}")
         raise
 
-def generate_attestation(project, client, firm, output_path, custom_bio=None):
-    """
-    Generates an Attestation Letter PDF.
-    """
-    try:
+
+def get_rendered_attestation_markdown(project, client, firm, custom_bio=None, custom_template_content=None):
+    if custom_template_content is not None:
+        md_content = custom_template_content
+    else:
         template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
         md_template_path = os.path.join(template_dir, 'attestation_template.md')
         
         with open(md_template_path, 'r', encoding='utf-8') as f:
             md_content = f.read()
 
-        project['report_date_formatted'] = format_date_with_suffix(project.get('report_date', ''))
-        project['start_date_formatted'] = format_date_with_suffix(project.get('start_date', ''))
-        project['end_date_formatted'] = format_date_with_suffix(project.get('end_date', ''))
+    project['report_date_formatted'] = format_date_with_suffix(project.get('report_date', ''))
+    project['start_date_formatted'] = format_date_with_suffix(project.get('start_date', ''))
+    project['end_date_formatted'] = format_date_with_suffix(project.get('end_date', ''))
 
-        firm_dict = {f.get('key'): f.get('value') for f in firm} if isinstance(firm, list) else dict(firm)
-        if project.get('is_whitelabel') and project.get('whitelabel_firm_name'):
-            firm_dict['firm_name'] = project.get('whitelabel_firm_name')
+    firm_dict = {f.get('key'): f.get('value') for f in firm} if isinstance(firm, list) else dict(firm)
+    if project.get('is_whitelabel') and project.get('whitelabel_firm_name'):
+        firm_dict['firm_name'] = project.get('whitelabel_firm_name')
 
-        from database import operations as db
-        tester = {
-            'name': project.get('tester_name', ''),
-            'description': project.get('tester_description', ''),
-            'title': ''
-        }
-        if tester['name']:
-            db_testers = db.get_testers()
-            db_tester = next((t for t in db_testers if t['name'] == tester['name']), None)
-            if db_tester:
-                tester['description'] = custom_bio if custom_bio is not None else db_tester.get('bio', '')
-                tester['title'] = db_tester.get('title', '')
-                
-        env = SandboxedEnvironment()  # sandbox blocks dunder/globals access even for user-edited templates
-        template = env.from_string(md_content)
+    from database import operations as db
+    tester = {
+        'name': project.get('tester_name', ''),
+        'description': project.get('tester_description', ''),
+        'title': ''
+    }
+    if tester['name']:
+        db_testers = db.get_testers()
+        db_tester = next((t for t in db_testers if t['name'] == tester['name']), None)
+        if db_tester:
+            tester['description'] = custom_bio if custom_bio is not None else db_tester.get('bio', '')
+            tester['title'] = db_tester.get('title', '')
+            
+    env = SandboxedEnvironment()
+    template = env.from_string(md_content)
+    
+    return template.render(
+        project=project,
+        client=client,
+        firm=firm_dict,
+        tester=tester
+    ), firm_dict
+
+def generate_attestation(project, client, firm, output_path, custom_bio=None):
+    """
+    Generates an Attestation Letter PDF.
+    """
+    try:
+        template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
         
-        rendered_md = template.render(
-            project=project,
-            client=client,
-            firm=firm_dict,
-            tester=tester
-        )
-        
+        if project.get('use_custom_attestation'):
+            custom_content = project.get('custom_attestation', '')
+            rendered_md, firm_dict = get_rendered_attestation_markdown(project, client, firm, custom_bio, custom_template_content=custom_content)
+        else:
+            rendered_md, firm_dict = get_rendered_attestation_markdown(project, client, firm, custom_bio)
+            
         report_html_body = markdown.markdown(rendered_md, extensions=['fenced_code', 'tables', 'md_in_html', 'attr_list'])
         
         html_env = Environment(loader=FileSystemLoader(template_dir))
