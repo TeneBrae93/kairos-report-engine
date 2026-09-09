@@ -52,9 +52,20 @@ def show_manage_projects():
     if not active_client_projects:
         st.write("*No projects found for this client.*")
         
-    for p in active_client_projects:
-        is_expanded = st.session_state.get('edit_project_id') == p['id']
-        with st.expander(f"{p['name']} (Client: {p['client_name']})", expanded=is_expanded):
+    if active_client_projects:
+        project_options = {p['name']: p['id'] for p in active_client_projects}
+        default_p_id = st.session_state.get('edit_project_id')
+        if default_p_id not in project_options.values():
+            default_p_id = active_client_projects[0]['id']
+            st.session_state.edit_project_id = default_p_id
+            
+        default_idx = list(project_options.values()).index(default_p_id)
+        selected_proj_name = st.selectbox("Select Project to Edit", list(project_options.keys()), index=default_idx)
+        selected_p_id = project_options[selected_proj_name]
+        st.session_state.edit_project_id = selected_p_id
+        
+        p = next(proj for proj in active_client_projects if proj['id'] == selected_p_id)
+        with st.container():
             with st.form(f"edit_proj_{p['id']}"):
                 ep_name = st.text_input("Project Name", value=p['name'])
                 ep_app_name = st.text_input("Application Name", value=p.get('application_name', ''))
@@ -93,6 +104,7 @@ def show_manage_projects():
                 s_weaknesses = st.text_area("Summary of Weaknesses", value=p.get('summary_of_weaknesses', '') or '', height=150)
                 
                 st.markdown("#### Tools Used")
+                st.caption("⚠️ **Important:** Press `Enter` or click outside the table after typing to confirm your edits before clicking Save.")
                 tools_str = p.get('tools_used', '[]')
                 try:
                     t_list = json.loads(tools_str)
@@ -116,6 +128,7 @@ def show_manage_projects():
                 )
                 
                 st.markdown("#### Appendices")
+                st.caption("⚠️ **Important:** Press `Enter` or click outside the table after typing to confirm your edits before clicking Save.")
                 app_str = p.get('appendices', '[]')
                 try:
                     a_list = json.loads(app_str) if app_str else []
