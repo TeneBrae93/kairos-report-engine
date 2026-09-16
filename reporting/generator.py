@@ -74,13 +74,19 @@ def generate_report(project, client, firm, findings, output_path):
             finding['anchor'] = re.sub(r'[^a-z0-9]+', '-', (finding.get('title') or '').lower()).strip('-')
             finding['steps_html'] = markdown.markdown(finding.get('steps_to_reproduce') or '', extensions=['fenced_code', 'tables', 'md_in_html', 'toc', 'attr_list'])
 
+        is_azure = project.get('project_type') == 'Azure Penetration Test'
+        
         table_html = '<div style="page-break-inside: avoid; margin-bottom: 20px;">\n'
         table_html += '<table style="width: 100%; border-collapse: collapse; border: 1px solid #333;">\n'
         table_html += '  <thead>\n'
         table_html += '    <tr>\n'
-        table_html += '      <th style="border: 1px solid #333; background-color: #555; color: white; padding: 10px; font-weight: bold; width: 40%; text-align: center;">Finding</th>\n'
-        table_html += '      <th style="border: 1px solid #333; background-color: #555; color: white; padding: 10px; font-weight: bold; width: 20%; text-align: center;">Risk Rating</th>\n'
-        table_html += '      <th style="border: 1px solid #333; background-color: #555; color: white; padding: 10px; font-weight: bold; width: 40%; text-align: center;">Affected Hosts</th>\n'
+        if is_azure:
+            table_html += '      <th style="border: 1px solid #333; background-color: #555; color: white; padding: 10px; font-weight: bold; width: 70%; text-align: center;">Finding</th>\n'
+            table_html += '      <th style="border: 1px solid #333; background-color: #555; color: white; padding: 10px; font-weight: bold; width: 30%; text-align: center;">Risk Rating</th>\n'
+        else:
+            table_html += '      <th style="border: 1px solid #333; background-color: #555; color: white; padding: 10px; font-weight: bold; width: 40%; text-align: center;">Finding</th>\n'
+            table_html += '      <th style="border: 1px solid #333; background-color: #555; color: white; padding: 10px; font-weight: bold; width: 20%; text-align: center;">Risk Rating</th>\n'
+            table_html += '      <th style="border: 1px solid #333; background-color: #555; color: white; padding: 10px; font-weight: bold; width: 40%; text-align: center;">Affected Hosts</th>\n'
         table_html += '    </tr>\n'
         table_html += '  </thead>\n'
         table_html += '  <tbody>\n'
@@ -117,7 +123,8 @@ def generate_report(project, client, firm, findings, output_path):
             table_html += f'    <tr>\n'
             table_html += f'      <td style="border: 1px solid #333; padding: 10px; text-align: center; background-color: white;">{title_html}</td>\n'
             table_html += f'      <td style="border: 1px solid #333; padding: 10px; background-color: {bg_color}; color: white; font-weight: bold; text-align: center;">{sev}</td>\n'
-            table_html += f'      <td style="border: 1px solid #333; padding: 10px; text-align: center; color: #fff; background-color: #2c3e50;">{host_html}</td>\n'
+            if not is_azure:
+                table_html += f'      <td style="border: 1px solid #333; padding: 10px; text-align: center; color: #fff; background-color: #2c3e50;">{host_html}</td>\n'
             table_html += f'    </tr>\n'
             
         table_html += '  </tbody>\n</table>\n</div>'
@@ -184,12 +191,14 @@ def generate_report(project, client, firm, findings, output_path):
 {% endif %}
 {% if finding.host %}
 {% set hosts = finding.host.split(',') %}
-{% if hosts|length > 5 %}**Affected Hosts:** {{ finding.host }}<br>
-{% elif hosts|length > 1 %}**Affected Hosts:**
+{% set host_label = "Affected Resources" if project.project_type == "Azure Penetration Test" else "Affected Hosts" %}
+{% set single_host_label = "Affected Resource" if project.project_type == "Azure Penetration Test" else "Affected Host" %}
+{% if hosts|length > 5 %}**{{ host_label }}:** {{ finding.host }}<br>
+{% elif hosts|length > 1 %}**{{ host_label }}:**
 {% for h in hosts %}
 - {{ h.strip() }}
 {% endfor %}
-{% else %}**Affected Host:** {{ finding.host }}<br>
+{% else %}**{{ single_host_label }}:** {{ finding.host }}<br>
 {% endif %}
 {% endif %}
 {% if finding.path %}**Affected Path:** {{ finding.path }}<br>

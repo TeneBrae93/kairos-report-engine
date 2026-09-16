@@ -36,7 +36,7 @@ def show_manage_projects():
         "External Network Penetration Test",
         "Network Vulnerability Scan",
         "AI/LLM Penetration Test",
-        "Cloud Penetration Test"
+        "Azure Penetration Test"
     ]
     
     testers = db.get_testers()
@@ -93,7 +93,8 @@ def show_manage_projects():
                     ep_tester_idx = tester_names.index(ep_tester_name)
                 
                 ep_tester = st.selectbox("Assigned Tester", tester_names, index=ep_tester_idx)
-                p_hosts = st.text_area("Scope / Hosts", value=p.get('hosts', '') or '')
+                p_hosts_label = "In-Scope Resources" if ep_type == 'Azure Penetration Test' else "Scope / Hosts"
+                p_hosts = st.text_area(p_hosts_label, value=p.get('hosts', '') or '')
                 
                 st.markdown("#### Attack Narrative")
                 jodit_config = {"theme": "dark", "style": {"background": "#0e1117", "color": "#ffffff"}, "height": 400, "uploader": {"insertImageAsBase64URI": True}}

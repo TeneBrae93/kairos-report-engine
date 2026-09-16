@@ -4,6 +4,7 @@ from database import operations as db
 from streamlit_jodit import st_jodit
 from parsers.nessus import parse_nessus
 from parsers.burp import parse_burp
+from parsers.azure_audit import parse_azure_audit
 from utils.helpers import process_base64_images, restore_base64_images, sanitize_rich_html
 
 def show_manage_findings():
@@ -32,6 +33,8 @@ def show_manage_findings():
     
     active_project = next((p for p in projects if p['id'] == project_id), None)
     is_web_app = active_project and active_project.get('project_type') == 'Web Application Penetration Test'
+    is_azure = active_project and active_project.get('project_type') == 'Azure Penetration Test'
+    host_label = "Affected Resource" if is_azure else "Host"
     
     st.divider()
     st.subheader("Current Project Findings")
@@ -39,7 +42,7 @@ def show_manage_findings():
     if findings:
         for f in findings:
             is_expanded = st.session_state.get('edit_finding_id') == f['id']
-            with st.expander(f"[{f['severity']}] {f['title']} (Host: {f.get('host', 'N/A')})", expanded=is_expanded):
+            with st.expander(f"[{f['severity']}] {f['title']} ({host_label}: {f.get('host', 'N/A')})", expanded=is_expanded):
                 if is_expanded:
                     with st.form(f"edit_form_{f['id']}"):
                         e_title = st.text_input("Title", value=f['title'])
@@ -49,7 +52,7 @@ def show_manage_findings():
                         e_sev = st.selectbox("Severity", e_sev_options, index=e_sev_index)
                         
                         col_h, col_p = st.columns(2)
-                        e_host = col_h.text_input("Host", value=f.get('host', ''))
+                        e_host = col_h.text_input(host_label, value=f.get('host', ''))
                         if is_web_app:
                             e_path = col_p.text_input("Affected Path", value=f.get('path', ''))
                         else:
@@ -111,7 +114,7 @@ def show_manage_findings():
                 selected_vuln_name = st.selectbox("Select Vulnerability", list(lib_options.keys()))
                 
                 col_h, col_p = st.columns(2)
-                lib_host = col_h.text_input("Host")
+                lib_host = col_h.text_input(host_label)
                 if is_web_app:
                     lib_path = col_p.text_input("Affected Path (e.g. /admin)")
                 else:
@@ -136,14 +139,17 @@ def show_manage_findings():
                     st.rerun()
 
     with st.expander("Import Scanner Output"):
-        import_type = st.radio("Select Tool", ["Nessus", "Burp Suite"], horizontal=True)
+        import_type = st.radio("Select Tool", ["Nessus", "Burp Suite", "Azure-Audit (JSON)"], horizontal=True)
         
         if import_type == "Nessus":
             uploaded_file = st.file_uploader("Upload Nessus File (.nessus)", type=['nessus', 'xml'])
             parser_func = parse_nessus
-        else:
+        elif import_type == "Burp Suite":
             uploaded_file = st.file_uploader("Upload Burp XML File", type=['xml'])
             parser_func = parse_burp
+        else:
+            uploaded_file = st.file_uploader("Upload Azure-Audit JSON", type=['json'])
+            parser_func = parse_azure_audit
             
         settings = db.get_settings()
         gemini_api_key = settings.get('gemini_api_key', '')
@@ -217,7 +223,7 @@ def show_manage_findings():
         mf_title = st.text_input("Title")
         mf_sev = st.selectbox("Severity", ["Critical", "High", "Medium", "Low", "Info"])
         col_h, col_p = st.columns(2)
-        mf_host = col_h.text_input("Host")
+        mf_host = col_h.text_input(host_label)
         if is_web_app:
             mf_path = col_p.text_input("Affected Path (e.g. /admin)")
         else:

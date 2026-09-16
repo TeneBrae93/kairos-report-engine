@@ -119,19 +119,19 @@ The assessment followed a comprehensive methodology based on industry-recognized
 
 Testing was performed under the strict Rules of Engagement provided by {{ client.name }} to ensure the stability of the production environment. This report details the high-level findings and provides strategic recommendations to address the identified risks.
 
-{% elif project.project_type == 'Cloud Penetration Test' %}
-A comprehensive penetration test and security review was conducted on the cloud environment
-between {{ project.start_date_formatted }} and {{ project.end_date_formatted }}. The objective of this engagement was to emulate a malicious actor to identify and exploit vulnerabilities, misconfigurations, and weak access controls that could impact the confidentiality, integrity, and availability of the cloud infrastructure and hosted services.
+{% elif project.project_type == 'Azure Penetration Test' %}
+A comprehensive penetration test and security review was conducted on the Microsoft Azure cloud environment
+between {{ project.start_date_formatted }} and {{ project.end_date_formatted }}. The objective of this engagement was to emulate a malicious actor to identify and exploit vulnerabilities, misconfigurations, and weak access controls that could impact the confidentiality, integrity, and availability of the Azure infrastructure and hosted services.
 
-The assessment followed a comprehensive methodology based on industry-recognized standards, including the CIS Foundations Benchmarks and cloud provider best practices. Key phases of the engagement included:
+The assessment followed a comprehensive methodology based on industry-recognized standards, including the CIS Microsoft Azure Foundations Benchmark and Microsoft's security best practices. Key phases of the engagement included:
 
-**1. Reconnaissance & Discovery:** Enumerating cloud assets, analyzing Identity and Access Management (IAM) configurations, and reviewing network security groups and routing tables.
+**1. Reconnaissance & Discovery:** Enumerating Azure resources, analyzing Entra ID (Azure AD) configurations, and reviewing Network Security Groups (NSGs) and routing tables.
 
-**2. Vulnerability Analysis:** Systematically identifying security flaws such as publicly exposed storage buckets, overly permissive IAM roles, unencrypted data stores, and vulnerable compute instances.
+**2. Vulnerability Analysis:** Systematically identifying security flaws such as publicly exposed Storage Accounts, overly permissive Role-Based Access Control (RBAC) assignments, unencrypted data stores, and vulnerable compute instances (VMs, App Services).
 
-**3. Exploitation:** Safely and non-disruptively attempting to execute identified vulnerabilities to bypass security controls, escalate privileges within the cloud environment, and access sensitive resources.
+**3. Exploitation:** Safely and non-disruptively attempting to execute identified vulnerabilities to bypass security controls, escalate privileges within the Azure subscription or Entra ID tenant, and access sensitive resources.
 
-**4. Post-Exploitation:** Demonstrating the potential business impact of a successful breach, including unauthorized data access, lateral movement between cloud services, and potential compromise of the control plane.
+**4. Post-Exploitation:** Demonstrating the potential business impact of a successful breach, including unauthorized data access, lateral movement between Azure services, and potential compromise of the management group or tenant control plane.
 
 Testing was performed under the strict Rules of Engagement provided by {{ client.name }} to ensure the stability of the production environment. This report details the high-level findings and provides strategic recommendations to address the identified risks.
 
