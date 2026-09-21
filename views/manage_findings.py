@@ -1,10 +1,12 @@
 import streamlit as st
 import os
+import json
 from database import operations as db
 from streamlit_jodit import st_jodit
 from parsers.nessus import parse_nessus
 from parsers.burp import parse_burp
 from parsers.azure_audit import parse_azure_audit
+from parsers.aws_audit import parse_aws_audit
 from utils.helpers import process_base64_images, restore_base64_images, sanitize_rich_html
 
 def show_manage_findings():
@@ -58,12 +60,39 @@ def show_manage_findings():
                         e_sev_index = e_sev_options.index(f['severity']) if f['severity'] in e_sev_options else 4
                         e_sev = st.selectbox("Severity", e_sev_options, index=e_sev_index)
                         
-                        col_h, col_p = st.columns(2)
-                        e_host = col_h.text_input(host_label, value=f.get('host', ''), help=host_help)
-                        if is_web_app:
-                            e_path = col_p.text_input("Affected Path", value=f.get('path', ''))
+                        if is_aws:
+                            try:
+                                h_data = json.loads(f.get('host', '[]'))
+                                if not isinstance(h_data, list): h_data = []
+                            except:
+                                h_data = []
+                            if not h_data:
+                                h_data = [{"account_id": "", "resource": ""}]
+                            
+                            st.markdown("#### Affected AWS Resources")
+                            e_host_data = st.data_editor(
+                                h_data,
+                                column_config={
+                                    "account_id": st.column_config.TextColumn("Account ID", required=True),
+                                    "resource": st.column_config.TextColumn("Resource / ARN", required=True)
+                                },
+                                num_rows="dynamic",
+                                use_container_width=True,
+                                key=f"e_host_data_{f['id']}"
+                            )
+                            e_host = json.dumps([r for r in e_host_data if r.get('account_id') or r.get('resource')])
+                            
+                            if is_web_app:
+                                e_path = st.text_input("Affected Path", value=f.get('path', ''))
+                            else:
+                                e_path = f.get('path', '')
                         else:
-                            e_path = f.get('path', '')
+                            col_h, col_p = st.columns(2)
+                            e_host = col_h.text_input(host_label, value=f.get('host', ''), help=host_help)
+                            if is_web_app:
+                                e_path = col_p.text_input("Affected Path", value=f.get('path', ''))
+                            else:
+                                e_path = f.get('path', '')
                         
                         col_c, col_v = st.columns(2)
                         e_cvss = col_c.number_input("CVSS", min_value=0.0, max_value=10.0, step=0.1, value=float(f.get('cvss') or 0.0))
@@ -120,12 +149,27 @@ def show_manage_findings():
                 lib_options = {f"[{v['severity']}] {v['title']}": v for v in lib}
                 selected_vuln_name = st.selectbox("Select Vulnerability", list(lib_options.keys()))
                 
-                col_h, col_p = st.columns(2)
-                lib_host = col_h.text_input(host_label, help=host_help)
-                if is_web_app:
-                    lib_path = col_p.text_input("Affected Path (e.g. /admin)")
-                else:
+                if is_aws:
+                    st.markdown("#### Affected AWS Resources")
+                    lib_host_data = st.data_editor(
+                        [{"account_id": "", "resource": ""}],
+                        column_config={
+                            "account_id": st.column_config.TextColumn("Account ID", required=True),
+                            "resource": st.column_config.TextColumn("Resource / ARN", required=True)
+                        },
+                        num_rows="dynamic",
+                        use_container_width=True,
+                        key="lib_host_data"
+                    )
+                    lib_host = json.dumps([r for r in lib_host_data if r.get('account_id') or r.get('resource')])
                     lib_path = ""
+                else:
+                    col_h, col_p = st.columns(2)
+                    lib_host = col_h.text_input(host_label, help=host_help)
+                    if is_web_app:
+                        lib_path = col_p.text_input("Affected Path (e.g. /admin)")
+                    else:
+                        lib_path = ""
                 
                 if st.form_submit_button("Import to Project") and selected_vuln_name:
                     selected_vuln = lib_options[selected_vuln_name]
@@ -146,7 +190,7 @@ def show_manage_findings():
                     st.rerun()
 
     with st.expander("Import Scanner Output"):
-        import_type = st.radio("Select Tool", ["Nessus", "Burp Suite", "Azure-Audit (JSON)"], horizontal=True)
+        import_type = st.radio("Select Tool", ["Nessus", "Burp Suite", "Azure-Audit (JSON)", "AWS-Audit (JSON)"], horizontal=True)
         
         if import_type == "Nessus":
             uploaded_file = st.file_uploader("Upload Nessus File (.nessus)", type=['nessus', 'xml'])
@@ -154,9 +198,12 @@ def show_manage_findings():
         elif import_type == "Burp Suite":
             uploaded_file = st.file_uploader("Upload Burp XML File", type=['xml'])
             parser_func = parse_burp
-        else:
+        elif import_type == "Azure-Audit (JSON)":
             uploaded_file = st.file_uploader("Upload Azure-Audit JSON", type=['json'])
             parser_func = parse_azure_audit
+        else:
+            uploaded_file = st.file_uploader("Upload AWS-Audit JSON", type=['json'])
+            parser_func = parse_aws_audit
             
         settings = db.get_settings()
         gemini_api_key = settings.get('gemini_api_key', '')
@@ -229,12 +276,27 @@ def show_manage_findings():
     with st.form(f"add_manual_finding_{st.session_state.add_finding_key}"):
         mf_title = st.text_input("Title")
         mf_sev = st.selectbox("Severity", ["Critical", "High", "Medium", "Low", "Info"])
-        col_h, col_p = st.columns(2)
-        mf_host = col_h.text_input(host_label, help=host_help)
-        if is_web_app:
-            mf_path = col_p.text_input("Affected Path (e.g. /admin)")
-        else:
+        if is_aws:
+            st.markdown("#### Affected AWS Resources")
+            mf_host_data = st.data_editor(
+                [{"account_id": "", "resource": ""}],
+                column_config={
+                    "account_id": st.column_config.TextColumn("Account ID", required=True),
+                    "resource": st.column_config.TextColumn("Resource / ARN", required=True)
+                },
+                num_rows="dynamic",
+                use_container_width=True,
+                key=f"mf_host_data_{st.session_state.add_finding_key}"
+            )
+            mf_host = json.dumps([r for r in mf_host_data if r.get('account_id') or r.get('resource')])
             mf_path = ""
+        else:
+            col_h, col_p = st.columns(2)
+            mf_host = col_h.text_input(host_label, help=host_help)
+            if is_web_app:
+                mf_path = col_p.text_input("Affected Path (e.g. /admin)")
+            else:
+                mf_path = ""
         
         col_c, col_v = st.columns(2)
         mf_cvss = col_c.number_input("CVSS", min_value=0.0, max_value=10.0, step=0.1)

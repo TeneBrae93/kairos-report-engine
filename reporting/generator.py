@@ -73,6 +73,22 @@ def generate_report(project, client, firm, findings, output_path):
             # and the detailed-findings anchor always match.
             finding['anchor'] = re.sub(r'[^a-z0-9]+', '-', (finding.get('title') or '').lower()).strip('-')
             finding['steps_html'] = markdown.markdown(finding.get('steps_to_reproduce') or '', extensions=['fenced_code', 'tables', 'md_in_html', 'toc', 'attr_list'])
+            
+            if project.get('project_type') == 'AWS Penetration Test':
+                try:
+                    import json
+                    h_data = json.loads(finding.get('host', '[]'))
+                    if isinstance(h_data, list) and h_data and (h_data[0].get('account_id') or h_data[0].get('resource')):
+                        md = "**Affected Resources:**\n\n| Account ID | Resource / ARN |\n|---|---|\n"
+                        for row in h_data:
+                            md += f"| {row.get('account_id','')} | {row.get('resource','')} |\n"
+                        finding['host_md'] = md
+                    else:
+                        finding['host_md'] = ""
+                except Exception:
+                    finding['host_md'] = ""
+            else:
+                finding['host_md'] = ""
 
         is_azure = project.get('project_type') == 'Azure Penetration Test'
         is_aws = project.get('project_type') == 'AWS Penetration Test'
@@ -191,7 +207,9 @@ def generate_report(project, client, firm, findings, output_path):
 
 {% if finding.cvss_vector %}**CVSSv4 Vector String:** {{ finding.cvss_vector }}<br>
 {% endif %}
-{% if finding.host %}
+{% if finding.host_md %}
+{{ finding.host_md }}
+{% elif finding.host %}
 {% set hosts = finding.host.split(',') %}
 {% set is_cloud = project.project_type == "Azure Penetration Test" or project.project_type == "AWS Penetration Test" %}
 {% set host_label = "Affected Resources" if is_cloud else "Affected Hosts" %}
