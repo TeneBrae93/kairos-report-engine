@@ -15,10 +15,11 @@ I actively use this for engagements at Kairos Sec. Expect regular updates and ne
 
 ## Key Features
 
-- **PDF Generation**: Export highly customized, professional PDF reports and formal Attestation Letters powered by Jinja2 and WeasyPrint.
-
+- **PDF Generation**: Export highly customized, professional PDF reports and formal Attestation Letters powered by Jinja2 and WeasyPrint. Support for Web Application, Internal Network, Azure, and AWS project types.
+- **AI-Powered Enhancements**: Optionally integrate with the Google Gemini API to automatically generate professional descriptions, step-by-step remediations, and contextual Proof-of-Concepts from raw tool output.
+- **Privacy-First Data Masking**: An integrated redaction engine automatically scrubs sensitive data (Client Names, IPs, AWS Account IDs, ARNs, Azure Resource IDs) from raw findings before sending them to external AI APIs, and perfectly rehydrates them upon return.
 - **Rich Text Editor**: Utilize a built-in rich text editor for writing comprehensive "Steps to Reproduce" and embedding proof-of-concept images.
-- **Finding Imports**: Seamlessly parse and import scanner outputs from Nessus (.nessus) and Burp Suite (XML).
+- **Finding Imports**: Seamlessly parse and import scanner outputs from Nessus (.nessus), Burp Suite (XML), Azure Audit (JSON), and AWS Audit (JSON).
 - **Secure Authentication**: Built-in User Management, Passphrase Hashing (Argon2), and Multi-Factor Authentication (TOTP via Google Authenticator/Authy).
 - **Vulnerability Library**: Maintain a global library of common vulnerabilities with support for bulk CSV import/export.
 - **Production Ready**: Ships with a utility to generate SSL certificates and runs securely on HTTPS port 443 with Streamlit telemetry and dev tools disabled.

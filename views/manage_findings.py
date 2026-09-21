@@ -235,8 +235,16 @@ def show_manage_findings():
                         total = len(findings)
                         
                         if total > 0:
+                            client_name = ""
+                            if active_project:
+                                # Fetch the client name if possible.
+                                clients = db.get_clients()
+                                client = next((c for c in clients if c['id'] == active_project['client_id']), None)
+                                if client:
+                                    client_name = client.get('name', '')
+                                    
                             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-                                future_to_finding = {executor.submit(enhance_finding_with_ai, f, gemini_api_key): f for f in findings}
+                                future_to_finding = {executor.submit(enhance_finding_with_ai, f, gemini_api_key, client_name): f for f in findings}
                                 completed = 0
                                 for future in concurrent.futures.as_completed(future_to_finding):
                                     enhanced_findings.append(future.result())
