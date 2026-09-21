@@ -16,6 +16,8 @@ The assessment covered the external, public-facing network infrastructure of {{ 
 The assessment covered the {{ client.name }} {{ project.application_name }} artificial intelligence model and its integrations, specifically targeting the following in-scope assets:
 {% elif project.project_type == 'Azure Penetration Test' %}
 The assessment covered the {{ client.name }} Microsoft Azure environment and Entra ID tenant architecture, specifically targeting the following in-scope assets:
+{% elif project.project_type == 'AWS Penetration Test' %}
+The assessment covered the {{ client.name }} Amazon Web Services (AWS) environment and IAM architecture, specifically targeting the following in-scope assets:
 {% else %}
 The assessment covered the {{ client.name }} {{ project.application_name }} environment and its associated functionalities, specifically targeting the following in-scope assets:
 {% endif %}
@@ -63,6 +65,13 @@ The assessment followed a comprehensive methodology based on industry-recognized
 **Conclusion**
 <br>
 Based on the testing performed, {{ firm.firm_name }} confirms that {{ client.name }} has subjected its Microsoft Azure environment to a rigorous security assessment. The organization has demonstrated a strong commitment to security by engaging in proactive testing and maintaining robust foundational controls.
+
+{% elif project.project_type == 'AWS Penetration Test' %}
+The assessment followed a comprehensive methodology based on industry-recognized standards, including the CIS AWS Foundations Benchmark and AWS security best practices.
+
+**Conclusion**
+<br>
+Based on the testing performed, {{ firm.firm_name }} confirms that {{ client.name }} has subjected its Amazon Web Services (AWS) environment to a rigorous security assessment. The organization has demonstrated a strong commitment to security by engaging in proactive testing and maintaining robust foundational controls.
 
 {% else %}
 The assessment followed a comprehensive methodology based on industry-recognized standards, including the OWASP Web Security Testing Guide (WSTG) and the Penetration Testing Execution Standard (PTES), tailored specifically to the application.

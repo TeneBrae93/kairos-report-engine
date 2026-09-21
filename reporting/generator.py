@@ -75,12 +75,14 @@ def generate_report(project, client, firm, findings, output_path):
             finding['steps_html'] = markdown.markdown(finding.get('steps_to_reproduce') or '', extensions=['fenced_code', 'tables', 'md_in_html', 'toc', 'attr_list'])
 
         is_azure = project.get('project_type') == 'Azure Penetration Test'
+        is_aws = project.get('project_type') == 'AWS Penetration Test'
+        is_cloud_platform = is_azure or is_aws
         
         table_html = '<div style="page-break-inside: avoid; margin-bottom: 20px;">\n'
         table_html += '<table style="width: 100%; border-collapse: collapse; border: 1px solid #333;">\n'
         table_html += '  <thead>\n'
         table_html += '    <tr>\n'
-        if is_azure:
+        if is_cloud_platform:
             table_html += '      <th style="border: 1px solid #333; background-color: #555; color: white; padding: 10px; font-weight: bold; width: 70%; text-align: center;">Finding</th>\n'
             table_html += '      <th style="border: 1px solid #333; background-color: #555; color: white; padding: 10px; font-weight: bold; width: 30%; text-align: center;">Risk Rating</th>\n'
         else:
@@ -123,7 +125,7 @@ def generate_report(project, client, firm, findings, output_path):
             table_html += f'    <tr>\n'
             table_html += f'      <td style="border: 1px solid #333; padding: 10px; text-align: center; background-color: white;">{title_html}</td>\n'
             table_html += f'      <td style="border: 1px solid #333; padding: 10px; background-color: {bg_color}; color: white; font-weight: bold; text-align: center;">{sev}</td>\n'
-            if not is_azure:
+            if not is_cloud_platform:
                 table_html += f'      <td style="border: 1px solid #333; padding: 10px; text-align: center; color: #fff; background-color: #2c3e50;">{host_html}</td>\n'
             table_html += f'    </tr>\n'
             
@@ -191,8 +193,9 @@ def generate_report(project, client, firm, findings, output_path):
 {% endif %}
 {% if finding.host %}
 {% set hosts = finding.host.split(',') %}
-{% set host_label = "Affected Resources" if project.project_type == "Azure Penetration Test" else "Affected Hosts" %}
-{% set single_host_label = "Affected Resource" if project.project_type == "Azure Penetration Test" else "Affected Host" %}
+{% set is_cloud = project.project_type == "Azure Penetration Test" or project.project_type == "AWS Penetration Test" %}
+{% set host_label = "Affected Resources" if is_cloud else "Affected Hosts" %}
+{% set single_host_label = "Affected Resource" if is_cloud else "Affected Host" %}
 {% if hosts|length > 5 %}**{{ host_label }}:** {{ finding.host }}<br>
 {% elif hosts|length > 1 %}**{{ host_label }}:**
 {% for h in hosts %}

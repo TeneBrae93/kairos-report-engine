@@ -34,7 +34,14 @@ def show_manage_findings():
     active_project = next((p for p in projects if p['id'] == project_id), None)
     is_web_app = active_project and active_project.get('project_type') == 'Web Application Penetration Test'
     is_azure = active_project and active_project.get('project_type') == 'Azure Penetration Test'
-    host_label = "Affected Resource" if is_azure else "Host"
+    is_aws = active_project and active_project.get('project_type') == 'AWS Penetration Test'
+    host_label = "Affected Resource" if is_azure or is_aws else "Host"
+    
+    host_help = None
+    if is_azure:
+        host_help = "Enter the Azure Resource ID. Example: /subscriptions/123.../resourceGroups/..."
+    elif is_aws:
+        host_help = "Enter the AWS ARN. Example: arn:aws:iam::123456789012:user/Bob"
     
     st.divider()
     st.subheader("Current Project Findings")
@@ -52,7 +59,7 @@ def show_manage_findings():
                         e_sev = st.selectbox("Severity", e_sev_options, index=e_sev_index)
                         
                         col_h, col_p = st.columns(2)
-                        e_host = col_h.text_input(host_label, value=f.get('host', ''))
+                        e_host = col_h.text_input(host_label, value=f.get('host', ''), help=host_help)
                         if is_web_app:
                             e_path = col_p.text_input("Affected Path", value=f.get('path', ''))
                         else:
@@ -114,7 +121,7 @@ def show_manage_findings():
                 selected_vuln_name = st.selectbox("Select Vulnerability", list(lib_options.keys()))
                 
                 col_h, col_p = st.columns(2)
-                lib_host = col_h.text_input(host_label)
+                lib_host = col_h.text_input(host_label, help=host_help)
                 if is_web_app:
                     lib_path = col_p.text_input("Affected Path (e.g. /admin)")
                 else:
@@ -223,7 +230,7 @@ def show_manage_findings():
         mf_title = st.text_input("Title")
         mf_sev = st.selectbox("Severity", ["Critical", "High", "Medium", "Low", "Info"])
         col_h, col_p = st.columns(2)
-        mf_host = col_h.text_input(host_label)
+        mf_host = col_h.text_input(host_label, help=host_help)
         if is_web_app:
             mf_path = col_p.text_input("Affected Path (e.g. /admin)")
         else:

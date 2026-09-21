@@ -36,7 +36,8 @@ def show_manage_projects():
         "External Network Penetration Test",
         "Network Vulnerability Scan",
         "AI/LLM Penetration Test",
-        "Azure Penetration Test"
+        "Azure Penetration Test",
+        "AWS Penetration Test"
     ]
     
     testers = db.get_testers()
@@ -93,8 +94,15 @@ def show_manage_projects():
                     ep_tester_idx = tester_names.index(ep_tester_name)
                 
                 ep_tester = st.selectbox("Assigned Tester", tester_names, index=ep_tester_idx)
-                p_hosts_label = "In-Scope Resources" if ep_type == 'Azure Penetration Test' else "Scope / Hosts"
-                p_hosts = st.text_area(p_hosts_label, value=p.get('hosts', '') or '')
+                p_hosts_label = "In-Scope Resources" if ep_type in ['Azure Penetration Test', 'AWS Penetration Test'] else "Scope / Hosts"
+                
+                p_hosts_help = None
+                if ep_type == 'Azure Penetration Test':
+                    p_hosts_help = "Enter the Azure Resource IDs. Example: /subscriptions/123.../resourceGroups/..."
+                elif ep_type == 'AWS Penetration Test':
+                    p_hosts_help = "Enter the AWS ARNs. Example: arn:aws:iam::123456789012:user/Bob"
+                    
+                p_hosts = st.text_area(p_hosts_label, value=p.get('hosts', '') or '', help=p_hosts_help)
                 
                 st.markdown("#### Attack Narrative")
                 jodit_config = {"theme": "dark", "style": {"background": "#0e1117", "color": "#ffffff"}, "height": 400, "uploader": {"insertImageAsBase64URI": True}}
