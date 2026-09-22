@@ -123,11 +123,25 @@ def show_manage_findings():
                         st.write(f"**Affected Path:** {f['path']}")
                     st.write(f"**Description:** {f.get('description', '')}")
                     
-                    col1, col2 = st.columns(2)
+                    col1, col2, col3 = st.columns(3)
                     if col1.button("Edit Finding", key=f"edit_find_btn_{f['id']}"):
                         st.session_state.edit_finding_id = f['id']
                         st.rerun()
-                    if col2.button("Delete Finding", key=f"del_find_{f['id']}"):
+                    if col2.button("Save to Library", key=f"save_lib_{f['id']}"):
+                        db.add_to_vuln_library(
+                            title=f['title'],
+                            severity=f['severity'],
+                            description=f.get('description', ''),
+                            remediation=f.get('remediation', ''),
+                            cvss=f.get('cvss', 0.0),
+                            cve='',
+                            steps_to_reproduce=f.get('steps_to_reproduce', ''),
+                            service_type=active_project.get('project_type', 'Web Application Penetration Test'),
+                            cvss_vector=f.get('cvss_vector', ''),
+                            refs=f.get('refs', '')
+                        )
+                        st.toast("Finding saved to library!")
+                    if col3.button("Delete Finding", type="primary", key=f"del_find_{f['id']}"):
                         db.delete_project_finding(f['id'])
                         st.rerun()
     else:

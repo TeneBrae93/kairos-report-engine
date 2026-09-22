@@ -56,6 +56,12 @@ def parse_aws_audit(file_path: str) -> list[dict]:
             if category:
                 description = f"**Category:** {category}\n\n{description}"
                 
+            steps_text = item.get('steps_to_reproduce', '')
+            steps_html = ""
+            if steps_text:
+                raw_markdown = f"**Steps to Reproduce**\n\n```bash\n{steps_text}\n```"
+                steps_html = markdown.markdown(raw_markdown, extensions=['fenced_code', 'tables'])
+                
             findings.append({
                 'title': title,
                 'severity': severity,
@@ -66,7 +72,7 @@ def parse_aws_audit(file_path: str) -> list[dict]:
                 'host': host_json,
                 'path': '',
                 'refs': '',
-                'steps_to_reproduce': ''
+                'steps_to_reproduce': steps_html
             })
                 
     except json.JSONDecodeError as e:
