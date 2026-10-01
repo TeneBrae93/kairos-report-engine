@@ -47,6 +47,16 @@ def generate_report(project, client, firm, findings, output_path):
         project['report_date_formatted'] = format_date_with_suffix(project.get('report_date', ''))
         project['start_date_formatted'] = format_date_with_suffix(project.get('start_date', ''))
         project['end_date_formatted'] = format_date_with_suffix(project.get('end_date', ''))
+        
+        import json
+        app_str = project.get('appendices', '[]')
+        try:
+            app_list = json.loads(app_str) if app_str else []
+            if not isinstance(app_list, list):
+                app_list = []
+        except Exception:
+            app_list = []
+        project['appendices_list'] = app_list
 
         severity_rank = {
             'Critical': 1,
@@ -79,10 +89,25 @@ def generate_report(project, client, firm, findings, output_path):
                     import json
                     h_data = json.loads(finding.get('host', '[]'))
                     if isinstance(h_data, list) and h_data and (h_data[0].get('account_id') or h_data[0].get('resource')):
-                        md = "**Affected Resources:**\n\n| Account ID | Resource / ARN |\n|---|---|\n"
-                        for row in h_data:
-                            md += f"| {row.get('account_id','')} | {row.get('resource','')} |\n"
-                        finding['host_md'] = md
+                        if len(h_data) > 8:
+                            md = "**Affected Resources:** (See Appendix for the full list of affected resources)\n\n| Account ID | Resource / ARN |\n|---|---|\n"
+                            for row in h_data[:8]:
+                                md += f"| {row.get('account_id','')} | {row.get('resource','')} |\n"
+                            finding['host_md'] = md
+                            
+                            app_md = "| Account ID | Resource / ARN |\n|---|---|\n"
+                            for row in h_data:
+                                app_md += f"| {row.get('account_id','')} | {row.get('resource','')} |\n"
+                            
+                            project['appendices_list'].append({
+                                'Title': f"Affected Resources: {finding.get('title', 'Unknown')}",
+                                'Content': app_md
+                            })
+                        else:
+                            md = "**Affected Resources:**\n\n| Account ID | Resource / ARN |\n|---|---|\n"
+                            for row in h_data:
+                                md += f"| {row.get('account_id','')} | {row.get('resource','')} |\n"
+                            finding['host_md'] = md
                     else:
                         finding['host_md'] = ""
                 except Exception:
@@ -296,15 +321,6 @@ def generate_report(project, client, firm, findings, output_path):
                 project['tools_used_table'] = tools_str.replace('\n', '<br>') if tools_str and tools_str != '[]' else ''
         except Exception:
             project['tools_used_table'] = tools_str.replace('\n', '<br>') if tools_str and tools_str != '[]' else ''
-            
-        app_str = project.get('appendices', '[]')
-        try:
-            app_list = json.loads(app_str) if app_str else []
-            if not isinstance(app_list, list):
-                app_list = []
-        except Exception:
-            app_list = []
-        project['appendices_list'] = app_list
             
         # Handle empty Jodit outputs for optional fields
         for field in ['attack_narrative', 'summary_of_strengths', 'summary_of_weaknesses']:

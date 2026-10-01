@@ -49,6 +49,34 @@ def show_manage_findings():
     st.subheader("Current Project Findings")
     findings = db.get_project_findings(project_id)
     if findings:
+        import pandas as pd
+        sev_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0, "Informational": 0}
+        for f in findings:
+            sev = f.get('severity', 'Info')
+            if sev == 'Info': sev = 'Informational'
+            if sev in sev_counts:
+                sev_counts[sev] += 1
+            else:
+                sev_counts['Informational'] += 1
+                
+        color_map = {
+            "Critical": "#b91c1c",
+            "High": "#ef4444",
+            "Medium": "#f97316",
+            "Low": "#eab308",
+            "Informational": "#84cc16"
+        }
+        
+        df = pd.DataFrame({
+            "Severity": ["Critical", "High", "Medium", "Low", "Informational"],
+            "Count": [sev_counts["Critical"], sev_counts["High"], sev_counts["Medium"], sev_counts["Low"], sev_counts["Informational"]]
+        })
+        df['Severity'] = pd.Categorical(df['Severity'], ["Critical", "High", "Medium", "Low", "Informational"])
+        df['Color'] = df['Severity'].map(color_map)
+        
+        st.bar_chart(df, x="Severity", y="Count", color="Color", use_container_width=True)
+        st.divider()
+        
         for f in findings:
             is_expanded = st.session_state.get('edit_finding_id') == f['id']
             with st.expander(f"[{f['severity']}] {f['title']} ({host_label}: {f.get('host', 'N/A')})", expanded=is_expanded):
