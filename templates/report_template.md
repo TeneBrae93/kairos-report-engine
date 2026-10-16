@@ -174,6 +174,30 @@ security best practices to identify misconfigurations that increase the attack s
 **4. Risk Prioritization:** Evaluating identified vulnerabilities based on their severity,
 exploitability, and potential impact on the confidentiality, integrity, and availability of
 sensitive data.
+
+{% elif project.project_type == 'External Network Vulnerability Scan' %}
+A vulnerability assessment was conducted on the organization's external network environment
+between {{ project.start_date_formatted }} and {{ project.end_date_formatted }}. The objective of this vulnerability assessment was to
+systematically identify, categorize, and prioritize security weaknesses that could be leveraged
+by an external threat actor. Unlike a penetration test, this assessment focused on surface-area coverage
+and risk identification rather than active exploitation.
+
+The assessment followed a structured methodology based on industry-recognized standards,
+such as the NIST Cybersecurity Framework and OWASP. Key phases of the engagement
+included:
+
+**1. Network Discovery:** Mapping the external, public-facing environment to identify active hosts,
+operating systems, and running services to establish an accurate asset inventory.
+
+**2. Vulnerability Scanning:** Utilizing automated tools and manual inspection to detect
+unpatched software, known vulnerabilities (CVEs), and insecure service configurations.
+
+**3. Configuration Review:** Analyzing system settings and network protocols against
+security best practices to identify misconfigurations that increase the attack surface.
+
+**4. Risk Prioritization:** Evaluating identified vulnerabilities based on their severity,
+exploitability, and potential impact on the confidentiality, integrity, and availability of
+sensitive data.
 {% endif %}
 
 <div style="page-break-inside: avoid;" markdown="1">

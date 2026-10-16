@@ -10,6 +10,8 @@ The testing was performed by {{ tester.name }}. {{ tester.description }}
 The assessment covered the internal network infrastructure of {{ client.name }}, specifically targeting the following in-scope assets:
 {% elif project.project_type == 'Network Vulnerability Scan' %}
 The assessment covered the internal network infrastructure of {{ client.name }}, specifically targeting the following in-scope assets:
+{% elif project.project_type == 'External Network Vulnerability Scan' %}
+The assessment covered the external, public-facing network infrastructure of {{ client.name }}, specifically targeting the following in-scope assets:
 {% elif project.project_type == 'External Network Penetration Test' %}
 The assessment covered the external, public-facing network infrastructure of {{ client.name }}, specifically targeting the following in-scope assets:
 {% elif project.project_type == 'AI/LLM Penetration Test' %}
@@ -44,6 +46,13 @@ The assessment followed a structured methodology based on industry-recognized st
 **Conclusion**
 <br>
 Based on the testing performed, {{ firm.firm_name }} confirms that {{ client.name }} has subjected its internal network to a rigorous vulnerability assessment. The organization has demonstrated a strong commitment to security by engaging in proactive scanning and maintaining robust foundational controls.
+
+{% elif project.project_type == 'External Network Vulnerability Scan' %}
+The assessment followed a structured methodology based on industry-recognized standards, such as the NIST Cybersecurity Framework and OWASP. Unlike a penetration test, this assessment focused on surface-area coverage and risk identification rather than active exploitation.
+
+**Conclusion**
+<br>
+Based on the testing performed, {{ firm.firm_name }} confirms that {{ client.name }} has subjected its external network to a rigorous vulnerability assessment. The organization has demonstrated a strong commitment to security by engaging in proactive scanning and maintaining robust foundational controls.
 
 {% elif project.project_type == 'External Network Penetration Test' %}
 The assessment followed a comprehensive methodology based on industry-recognized standards, including the Penetration Testing Execution Standard (PTES), tailored specifically to the external attack surface.

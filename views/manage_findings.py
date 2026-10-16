@@ -50,7 +50,7 @@ def show_manage_findings():
     findings = db.get_project_findings(project_id)
     if findings:
         import pandas as pd
-        sev_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0, "Informational": 0}
+        sev_counts = {"Informational": 0, "Low": 0, "Medium": 0, "High": 0, "Critical": 0}
         for f in findings:
             sev = f.get('severity', 'Info')
             if sev == 'Info': sev = 'Informational'
@@ -60,18 +60,18 @@ def show_manage_findings():
                 sev_counts['Informational'] += 1
                 
         color_map = {
-            "Critical": "#b91c1c",
-            "High": "#ef4444",
-            "Medium": "#f97316",
+            "Informational": "#84cc16",
             "Low": "#eab308",
-            "Informational": "#84cc16"
+            "Medium": "#f97316",
+            "High": "#ef4444",
+            "Critical": "#b91c1c"
         }
         
         df = pd.DataFrame({
-            "Severity": ["Critical", "High", "Medium", "Low", "Informational"],
-            "Count": [sev_counts["Critical"], sev_counts["High"], sev_counts["Medium"], sev_counts["Low"], sev_counts["Informational"]]
+            "Severity": ["Informational", "Low", "Medium", "High", "Critical"],
+            "Count": [sev_counts["Informational"], sev_counts["Low"], sev_counts["Medium"], sev_counts["High"], sev_counts["Critical"]]
         })
-        df['Severity'] = pd.Categorical(df['Severity'], ["Critical", "High", "Medium", "Low", "Informational"])
+        df['Severity'] = pd.Categorical(df['Severity'], ["Informational", "Low", "Medium", "High", "Critical"])
         df['Color'] = df['Severity'].map(color_map)
         
         st.bar_chart(df, x="Severity", y="Count", color="Color", use_container_width=True)

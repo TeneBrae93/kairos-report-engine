@@ -22,21 +22,31 @@ def parse_nessus(file_path: str) -> list[dict]:
             # Find all report items (vulnerabilities) for this host
             for item in report_host.findall('ReportItem'):
                 title = item.attrib.get('pluginName', 'Unknown Plugin')
-                severity_val = item.attrib.get('severity', '0')
+                raw_severity = item.attrib.get('severity', '0')
+                severity_val = str(raw_severity).strip().lower() if raw_severity is not None else '0'
                 
-                if severity_val == '0' and title != 'HSTS Missing From HTTPS Server' and 'SSH' not in title:
+                # Ignore informational findings (severity 0 / Info / None / blank)
+                if severity_val in ('', '0', 'info', 'informational', 'none'):
                     continue
                 
-                # We usually ignore severity 0 (Info) for vulnerabilities,
-                # but we can let the user filter it in the UI. We'll parse all.
+                risk_factor_el = item.find('risk_factor')
+                if risk_factor_el is not None and risk_factor_el.text:
+                    if risk_factor_el.text.strip().lower() in ('none', 'info', 'informational'):
+                        continue
+                
                 severity_map = {
-                    '0': 'Info',
                     '1': 'Low',
                     '2': 'Medium',
                     '3': 'High',
-                    '4': 'Critical'
+                    '4': 'Critical',
+                    'low': 'Low',
+                    'medium': 'Medium',
+                    'high': 'High',
+                    'critical': 'Critical'
                 }
-                severity = severity_map.get(severity_val, 'Unknown')
+                severity = severity_map.get(severity_val.lower(), severity_map.get(severity_val, 'Unknown'))
+                if severity in ('Info', 'Informational'):
+                    continue
                 
                 # Fetch text nodes
                 desc_el = item.find('description')

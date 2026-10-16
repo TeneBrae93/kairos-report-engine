@@ -14,7 +14,10 @@ def show_vuln_library():
         "Internal Network Penetration Test",
         "External Network Penetration Test",
         "Network Vulnerability Scan",
+        "External Network Vulnerability Scan",
         "AI/LLM Penetration Test",
+        "Azure Penetration Test",
+        "AWS Penetration Test",
         "Cloud Penetration Test"
     ]
 

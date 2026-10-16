@@ -35,6 +35,7 @@ def show_manage_projects():
         "Internal Network Penetration Test",
         "External Network Penetration Test",
         "Network Vulnerability Scan",
+        "External Network Vulnerability Scan",
         "AI/LLM Penetration Test",
         "Azure Penetration Test",
         "AWS Penetration Test"
