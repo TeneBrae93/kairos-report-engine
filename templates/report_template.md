@@ -151,7 +151,7 @@ The assessment followed a comprehensive methodology based on industry-recognized
 
 Testing was performed under the strict Rules of Engagement provided by {{ client.name }} to ensure the stability of the production environment. This report details the high-level findings and provides strategic recommendations to address the identified risks.
 
-{% elif project.project_type == 'Network Vulnerability Scan' %}
+{% elif project.project_type == 'Internal Network Vulnerability Scan' %}
 A vulnerability assessment was conducted on the organization's internal network environment
 between {{ project.start_date_formatted }} and {{ project.end_date_formatted }}. The objective of this vulnerability assessment was to
 systematically identify, categorize, and prioritize security weaknesses that could be leveraged

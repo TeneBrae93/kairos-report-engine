@@ -8,7 +8,7 @@ The testing was performed by {{ tester.name }}. {{ tester.description }}
 <br>
 {% if project.project_type == 'Internal Network Penetration Test' %}
 The assessment covered the internal network infrastructure of {{ client.name }}, specifically targeting the following in-scope assets:
-{% elif project.project_type == 'Network Vulnerability Scan' %}
+{% elif project.project_type == 'Internal Network Vulnerability Scan' %}
 The assessment covered the internal network infrastructure of {{ client.name }}, specifically targeting the following in-scope assets:
 {% elif project.project_type == 'External Network Vulnerability Scan' %}
 The assessment covered the external, public-facing network infrastructure of {{ client.name }}, specifically targeting the following in-scope assets:
@@ -40,7 +40,7 @@ The assessment followed a comprehensive methodology based on industry-recognized
 <br>
 Based on the testing performed, {{ firm.firm_name }} confirms that {{ client.name }} has subjected its internal network to a rigorous security assessment. The organization has demonstrated a strong commitment to security by engaging in proactive testing and maintaining robust foundational controls.
 
-{% elif project.project_type == 'Network Vulnerability Scan' %}
+{% elif project.project_type == 'Internal Network Vulnerability Scan' %}
 The assessment followed a structured methodology based on industry-recognized standards, such as the NIST Cybersecurity Framework and OWASP. Unlike a penetration test, this assessment focused on surface-area coverage and risk identification rather than active exploitation.
 
 **Conclusion**

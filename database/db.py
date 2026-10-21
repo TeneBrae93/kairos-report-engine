@@ -219,6 +219,10 @@ def init_db():
     except sqlite3.OperationalError:
         pass
 
+    # Migration: Rename 'Network Vulnerability Scan' to 'Internal Network Vulnerability Scan'
+    cursor.execute("UPDATE projects SET project_type = 'Internal Network Vulnerability Scan' WHERE project_type = 'Network Vulnerability Scan'")
+    cursor.execute("UPDATE vuln_library SET service_type = 'Internal Network Vulnerability Scan' WHERE service_type = 'Network Vulnerability Scan'")
+
     # Create Login Attempts Table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS login_attempts (
