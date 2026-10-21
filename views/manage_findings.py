@@ -50,7 +50,9 @@ def show_manage_findings():
     findings = db.get_project_findings(project_id)
     if findings:
         import pandas as pd
-        sev_counts = {"Informational": 0, "Low": 0, "Medium": 0, "High": 0, "Critical": 0}
+        import altair as alt
+        sev_order = ["Critical", "High", "Medium", "Low", "Informational"]
+        sev_counts = {sev: 0 for sev in sev_order}
         for f in findings:
             sev = f.get('severity', 'Info')
             if sev == 'Info': sev = 'Informational'
@@ -59,22 +61,21 @@ def show_manage_findings():
             else:
                 sev_counts['Informational'] += 1
                 
-        color_map = {
-            "Informational": "#84cc16",
-            "Low": "#eab308",
-            "Medium": "#f97316",
-            "High": "#ef4444",
-            "Critical": "#b91c1c"
-        }
+        color_range = ["#b91c1c", "#ef4444", "#f97316", "#eab308", "#84cc16"]
         
         df = pd.DataFrame({
-            "Severity": ["Informational", "Low", "Medium", "High", "Critical"],
-            "Count": [sev_counts["Informational"], sev_counts["Low"], sev_counts["Medium"], sev_counts["High"], sev_counts["Critical"]]
+            "Severity": sev_order,
+            "Count": [sev_counts[sev] for sev in sev_order]
         })
-        df['Severity'] = pd.Categorical(df['Severity'], ["Informational", "Low", "Medium", "High", "Critical"])
-        df['Color'] = df['Severity'].map(color_map)
         
-        st.bar_chart(df, x="Severity", y="Count", color="Color", use_container_width=True)
+        chart = alt.Chart(df).mark_bar().encode(
+            x=alt.X("Severity:N", sort=sev_order, title="Severity", axis=alt.Axis(grid=False)),
+            y=alt.Y("Count:Q", title="Count", axis=alt.Axis(grid=True, tickMinStep=1)),
+            color=alt.Color("Severity:N", scale=alt.Scale(domain=sev_order, range=color_range), legend=None),
+            tooltip=["Severity:N", "Count:Q"]
+        ).interactive()
+        
+        st.altair_chart(chart, use_container_width=True)
         st.divider()
         
         for f in findings:
