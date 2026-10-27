@@ -1,6 +1,7 @@
 import unittest
+import markdown
 
-from utils.helpers import sanitize_rich_html
+from utils.helpers import sanitize_rich_html, normalize_code_blocks_for_markdown
 
 
 class RichHtmlSanitizationTests(unittest.TestCase):
@@ -37,6 +38,25 @@ class RichHtmlSanitizationTests(unittest.TestCase):
         self.assertIn('href="https://example.test"', cleaned)
         self.assertIn('rel="noopener noreferrer"', cleaned)
         self.assertIn('colspan="2"', cleaned)
+
+    def test_preserves_multiline_code_blocks_and_spacing(self):
+        value = (
+            '<p>Step 1:</p>'
+            '<pre><code>def exploit(target):\n'
+            '    if target:\n'
+            '        return "&lt;script&gt;alert(1)&lt;/script&gt;"\n\n'
+            '    return None</code></pre>'
+            '<p>Step 2:</p>'
+        )
+
+        cleaned = sanitize_rich_html(value)
+        normalized = normalize_code_blocks_for_markdown(cleaned)
+        rendered = markdown.markdown(
+            normalized,
+            extensions=['fenced_code', 'tables', 'md_in_html', 'toc', 'attr_list']
+        )
+
+        self.assertIn('<pre><code>def exploit(target):\n    if target:\n        return "&lt;script&gt;alert(1)&lt;/script&gt;"\n\n    return None</code></pre>', rendered)
 
 
 if __name__ == '__main__':

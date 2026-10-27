@@ -7,6 +7,7 @@ from weasyprint import HTML
 import logging
 
 from datetime import datetime
+from utils.helpers import normalize_code_blocks_for_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,8 @@ def generate_report(project, client, firm, findings, output_path):
             # Single source of truth for the anchor so the summary-table link
             # and the detailed-findings anchor always match.
             finding['anchor'] = re.sub(r'[^a-z0-9]+', '-', (finding.get('title') or '').lower()).strip('-')
-            finding['steps_html'] = markdown.markdown(finding.get('steps_to_reproduce') or '', extensions=['fenced_code', 'tables', 'md_in_html', 'toc', 'attr_list'])
+            raw_steps = normalize_code_blocks_for_markdown(finding.get('steps_to_reproduce') or '')
+            finding['steps_html'] = markdown.markdown(raw_steps, extensions=['fenced_code', 'tables', 'md_in_html', 'toc', 'attr_list'])
             
             if project.get('project_type') == 'AWS Penetration Test':
                 try:
@@ -113,7 +115,23 @@ def generate_report(project, client, firm, findings, output_path):
                 except Exception:
                     finding['host_md'] = ""
             else:
-                finding['host_md'] = ""
+                host_str = finding.get('host', '') or ''
+                hosts_list = [h.strip() for h in host_str.split(',') if h.strip()]
+                is_cloud = project.get('project_type') in ('Azure Penetration Test', 'AWS Penetration Test')
+                host_label = "Affected Resources" if is_cloud else "Affected Hosts"
+                label_lower = "affected resources" if is_cloud else "affected hosts"
+                
+                if len(hosts_list) > 10:
+                    shown_hosts = ", ".join(hosts_list[:10])
+                    finding['host_md'] = f"**{host_label}:** (See Appendix for the full list of {label_lower})<br>\n{shown_hosts}<br>"
+                    
+                    app_md = "\n".join(f"- {h}" for h in hosts_list)
+                    project['appendices_list'].append({
+                        'Title': f"{host_label}: {finding.get('title', 'Unknown')}",
+                        'Content': app_md
+                    })
+                else:
+                    finding['host_md'] = ""
 
         is_azure = project.get('project_type') == 'Azure Penetration Test'
         is_aws = project.get('project_type') == 'AWS Penetration Test'
@@ -153,11 +171,13 @@ def generate_report(project, client, firm, findings, output_path):
             else:
                 hosts = [h.strip() for h in host.split(',') if h.strip()]
                 host_links = []
-                for h in hosts:
+                for h in hosts[:10]:
                     if h.startswith('http'):
                         host_links.append(f'<a href="{h}" style="color: #fff; text-decoration: underline;">{h}</a>')
                     else:
                         host_links.append(h)
+                if len(hosts) > 10:
+                    host_links.append(f'<em>(+{len(hosts) - 10} more - see Appendix)</em>')
                 host_html = '<br>'.join(host_links) if host_links else 'N/A'
                 
             title_slug = finding['anchor']

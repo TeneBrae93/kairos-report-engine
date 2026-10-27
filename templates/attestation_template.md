@@ -1,6 +1,12 @@
 To Whom It May Concern,
 
+{% if project.project_type == 'Internal Network Vulnerability Scan' %}
+This letter certifies that {{ firm.firm_name }} performed an Internal Network Vulnerability Scan for {{ client.name }}. The assessment was conducted from {{ project.start_date_formatted }} through {{ project.end_date_formatted }}. 
+{% elif project.project_type == 'External Network Vulnerability Scan' %}
+This letter certifies that {{ firm.firm_name }} performed an External Network Vulnerability Scan for {{ client.name }}. The assessment was conducted from {{ project.start_date_formatted }} through {{ project.end_date_formatted }}. 
+{% else %}
 This letter certifies that {{ firm.firm_name }} performed a comprehensive Penetration Test for {{ client.name }}. The assessment was conducted from {{ project.start_date_formatted }} through {{ project.end_date_formatted }}. 
+{% endif %}
 
 The testing was performed by {{ tester.name }}. {{ tester.description }}
 

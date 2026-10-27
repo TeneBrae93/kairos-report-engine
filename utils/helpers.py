@@ -2,6 +2,8 @@ import os
 import hashlib
 import re
 import base64
+import shutil
+import tempfile
 
 import nh3
 
@@ -24,7 +26,7 @@ RICH_TEXT_URL_SCHEMES = {'data', 'http', 'https', 'mailto'}
 RICH_TEXT_DROP_CONTENT = {'embed', 'iframe', 'math', 'object', 'script', 'style', 'svg', 'template'}
 
 
-def sanitize_rich_html(html_content):
+def sanitize_rich_html(html_content: str) -> str:
     """Return the supported rich-text subset with executable markup removed."""
     if not html_content:
         return ''
@@ -36,6 +38,83 @@ def sanitize_rich_html(html_content):
         url_schemes=RICH_TEXT_URL_SCHEMES,
         strip_comments=True,
     )
+
+
+def normalize_code_blocks_for_markdown(html_content: str) -> str:
+    """Ensure <pre> blocks start on their own block lines so Python-Markdown preserves multi-line code blocks."""
+    if not html_content:
+        return ''
+    return re.sub(
+        r'\s*(<pre\b[^>]*>.*?</pre>)\s*',
+        r'\n\n\1\n\n',
+        html_content,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+
+
+def _inject_script_into_build_dir(build_dir: str, plugin_js_path: str) -> bool:
+    """Copy jodit_codeblock.js into the Streamlit Jodit build dir and link it in index.html."""
+    index_path = os.path.join(build_dir, "index.html")
+    target_js_path = os.path.join(build_dir, "jodit_codeblock.js")
+    if not os.path.exists(index_path) or not os.path.exists(plugin_js_path):
+        return False
+
+    with open(plugin_js_path, "rb") as src_f:
+        plugin_bytes = src_f.read()
+    plugin_hash = hashlib.md5(plugin_bytes).hexdigest()[:8]
+
+    with open(target_js_path, "wb") as dst_f:
+        dst_f.write(plugin_bytes)
+
+    with open(index_path, "r", encoding="utf-8") as idx_f:
+        html = idx_f.read()
+
+    script_tag = f'<script defer="defer" src="./jodit_codeblock.js?v={plugin_hash}"></script>'
+    if "jodit_codeblock.js" in html:
+        updated_html = re.sub(
+            r'<script[^>]*src="\./jodit_codeblock\.js[^"]*"[^>]*></script>',
+            script_tag,
+            html,
+        )
+    else:
+        updated_html = html.replace("</head>", f"{script_tag}</head>", 1)
+
+    if updated_html != html:
+        with open(index_path, "w", encoding="utf-8") as idx_f:
+            idx_f.write(updated_html)
+    return True
+
+
+def ensure_jodit_codeblock_plugin() -> None:
+    """Ensure the Streamlit Jodit component includes the custom Code Block toolbar & footer button."""
+    plugin_js_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jodit_codeblock.js")
+    if not os.path.exists(plugin_js_path):
+        return
+
+    try:
+        import streamlit_jodit
+        import streamlit.components.v1 as components
+
+        pkg_dir = os.path.dirname(os.path.abspath(streamlit_jodit.__file__))
+        orig_build_dir = os.path.join(pkg_dir, "frontend", "build")
+        if not os.path.exists(orig_build_dir):
+            return
+
+        try:
+            _inject_script_into_build_dir(orig_build_dir, plugin_js_path)
+        except OSError:
+            fallback_dir = os.path.join(tempfile.gettempdir(), "kairos_jodit_build")
+            if not os.path.exists(fallback_dir):
+                shutil.copytree(orig_build_dir, fallback_dir, dirs_exist_ok=True)
+            _inject_script_into_build_dir(fallback_dir, plugin_js_path)
+            streamlit_jodit._component_func = components.declare_component(
+                "streamlit_jodit", path=fallback_dir
+            )
+    except Exception:
+        pass
+
+
+ensure_jodit_codeblock_plugin()
 
 
 def get_image_base64(path):
