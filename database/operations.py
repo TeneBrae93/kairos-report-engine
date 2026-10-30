@@ -51,6 +51,13 @@ def add_client(name: str, description: str = ''):
     conn.commit()
     conn.close()
 
+def update_client(client_id: int, name: str, description: str = '') -> None:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE clients SET name = ?, description = ? WHERE id = ?", (name, description, client_id))
+    conn.commit()
+    conn.close()
+
 def delete_client(client_id: int):
     conn = get_connection()
     cursor = conn.cursor()

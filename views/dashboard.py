@@ -98,6 +98,17 @@ def show_dashboard():
         selected_client_name = st.selectbox("Active Client", client_options_list, index=default_index)
         client_id = client_options[selected_client_name]
         st.session_state.active_client_id = client_id
+        active_client = next((c for c in clients if c['id'] == client_id), None)
+
+        if active_client:
+            with st.expander(f"Edit Client: {active_client['name']}"):
+                with st.form(f"dash_edit_client_{client_id}"):
+                    edit_c_name = st.text_input("Client Name", value=active_client.get('name', ''))
+                    edit_c_desc = st.text_area("Description", value=active_client.get('description', '') or '')
+                    if st.form_submit_button("Save Client Changes") and edit_c_name.strip():
+                        db.update_client(client_id, edit_c_name.strip(), edit_c_desc)
+                        st.success(f"Updated client: {edit_c_name.strip()}")
+                        st.rerun()
         
         client_projects = [p for p in projects if p['client_id'] == client_id]
         
