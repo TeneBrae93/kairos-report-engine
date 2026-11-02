@@ -1,6 +1,45 @@
 import streamlit as st
 import os
 from database import operations as db
+from utils.helpers import restore_backup_archive
+
+@st.dialog("Restore From Backup")
+def restore_backup_dialog():
+    st.write("Upload a `.zip` backup archive to import clients, projects, findings, and project assets.")
+    uploaded_zip = st.file_uploader("Upload Backup Archive (.zip)", type=["zip"])
+    merge_existing = st.checkbox(
+        "Keep current projects and merge new ones from backup",
+        value=True,
+        help="When enabled (recommended for team transfers), all existing clients, projects, and findings are kept, and only new clients, projects, findings, and library entries from the backup are added.",
+    )
+    preserve_users = True
+    if not merge_existing:
+        st.warning("Full Replace Mode: This will overwrite your current clients, projects, and findings with the backup archive.")
+        preserve_users = st.checkbox(
+            "Preserve current user login credentials",
+            value=True,
+            help="Keeps your current user account(s) active so you stay logged in after the backup is restored.",
+        )
+    if uploaded_zip is not None:
+        if st.button("Restore Backup", type="primary", use_container_width=True):
+            try:
+                stats = restore_backup_archive(
+                    uploaded_zip,
+                    preserve_current_users=preserve_users,
+                    merge_existing=merge_existing,
+                )
+                for key in ("active_client_id", "edit_project_id", "edit_finding_id", "manage_findings_project_id"):
+                    st.session_state.pop(key, None)
+                if merge_existing and stats.get("projects_added", -1) >= 0:
+                    st.toast(
+                        f"Backup merged! Added {stats['clients_added']} client(s), "
+                        f"{stats['projects_added']} project(s), and {stats['findings_added']} finding(s)."
+                    )
+                else:
+                    st.toast("Backup restored successfully!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to restore backup: {e}")
 
 @st.dialog("Restore Deleted Files")
 def restore_files_dialog():
@@ -178,9 +217,9 @@ def show_dashboard():
 
     st.divider()
     st.subheader("Data Management")
-    st.write("Export your entire local database and project assets to a portable ZIP file, or recover accidentally deleted items.")
+    st.write("Export your entire local database and project assets to a portable ZIP file, restore from a backup archive, or recover accidentally deleted items.")
     
-    col_dm1, col_dm2 = st.columns(2)
+    col_dm1, col_dm2, col_dm3 = st.columns(3)
     with col_dm1:
         if st.button("Generate Backup Archive", use_container_width=True):
             import shutil
@@ -194,5 +233,9 @@ def show_dashboard():
                     st.download_button("Download ZIP", data=f, file_name="kairos_backup.zip", mime="application/zip", use_container_width=True)
                     
     with col_dm2:
+        if st.button("Restore From Backup", use_container_width=True):
+            restore_backup_dialog()
+
+    with col_dm3:
         if st.button("Restore Deleted Files", use_container_width=True):
             restore_files_dialog()

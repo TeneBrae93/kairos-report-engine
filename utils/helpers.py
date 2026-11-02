@@ -129,6 +129,12 @@ def restore_base64_images(html_content):
     
     def replacer(match):
         filepath = match.group(1)
+        if not os.path.exists(filepath):
+            rel_match = re.search(r'(?:^|/)(projects/\d+/\d+/assets/[^"]+)$', filepath)
+            if rel_match:
+                candidate = os.path.abspath(os.path.join("data", rel_match.group(1)))
+                if os.path.exists(candidate):
+                    filepath = candidate
         if os.path.exists(filepath):
             ext = filepath.split('.')[-1]
             try:
@@ -166,3 +172,401 @@ def process_base64_images(html_content, client_id, project_id):
             return match.group(0)
             
     return pattern.sub(replacer, html_content)
+
+
+def _rewrite_asset_file_urls(
+    html_content: str,
+    new_client_id: int | None = None,
+    new_project_id: int | None = None,
+) -> str:
+    """Update absolute file:// asset URLs in HTML so restored/merged backups resolve on the current host."""
+    if not html_content or "file://" not in html_content:
+        return html_content
+
+    pattern = re.compile(r'src="file://([^"]*?(?:^|/)projects/(\d+)/(\d+)/assets/([^"]+))"')
+
+    def replacer(match: re.Match) -> str:
+        orig_c_id = match.group(2)
+        orig_p_id = match.group(3)
+        filename = match.group(4)
+        c_id = new_client_id if new_client_id is not None else orig_c_id
+        p_id = new_project_id if new_project_id is not None else orig_p_id
+        new_abs = os.path.abspath(os.path.join("data", "projects", str(c_id), str(p_id), "assets", filename))
+        return f'src="file://{new_abs}"'
+
+    return pattern.sub(replacer, html_content)
+
+
+def _merge_backup_into_active_db(staging_dir: str, staged_db: str, target_db: str) -> dict[str, int]:
+    """Merge clients, projects, findings, testers, and vuln library from staged_db into target_db."""
+    import sqlite3
+
+    stats = {"clients_added": 0, "projects_added": 0, "findings_added": 0, "vulns_added": 0}
+    staged_projects_root = os.path.join(staging_dir, "projects")
+
+    src_conn = sqlite3.connect(staged_db)
+    src_conn.row_factory = sqlite3.Row
+    dst_conn = sqlite3.connect(target_db)
+    dst_conn.row_factory = sqlite3.Row
+
+    try:
+        # 1. Merge Clients
+        client_id_map: dict[int, int] = {}
+        src_clients = [
+            dict(r)
+            for r in src_conn.execute("SELECT * FROM clients").fetchall()
+            if not dict(r).get("deleted_at")
+        ]
+        for sc in src_clients:
+            old_cid = sc["id"]
+            cname = (sc.get("name") or "").strip()
+            cdesc = sc.get("description") or ""
+            existing = dst_conn.execute(
+                "SELECT id, description FROM clients WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND deleted_at IS NULL",
+                (cname,),
+            ).fetchone()
+            if existing:
+                client_id_map[old_cid] = existing["id"]
+                if not existing["description"] and cdesc:
+                    dst_conn.execute("UPDATE clients SET description = ? WHERE id = ?", (cdesc, existing["id"]))
+            else:
+                cur = dst_conn.execute(
+                    "INSERT INTO clients (name, description) VALUES (?, ?)",
+                    (cname, cdesc),
+                )
+                client_id_map[old_cid] = cur.lastrowid
+                stats["clients_added"] += 1
+
+        # 2. Merge Projects and their Findings + Assets
+        project_cols = [
+            "name", "application_name", "client_id", "project_type",
+            "start_date", "end_date", "report_date", "tester_name",
+            "tester_description", "hosts", "summary_of_strengths",
+            "summary_of_weaknesses", "cvss_mapping", "tools_used",
+            "is_whitelabel", "whitelabel_firm_name", "whitelabel_firm_website",
+            "appendices", "attack_narrative", "attestation_bio",
+            "use_custom_attestation", "custom_attestation",
+        ]
+
+        src_projects = [
+            dict(r)
+            for r in src_conn.execute("SELECT * FROM projects").fetchall()
+            if not dict(r).get("deleted_at")
+        ]
+
+        for sp in src_projects:
+            old_pid = sp["id"]
+            old_cid = sp.get("client_id")
+            if old_cid not in client_id_map:
+                continue
+            new_cid = client_id_map[old_cid]
+            pname = (sp.get("name") or "").strip()
+
+            existing_proj = dst_conn.execute(
+                "SELECT id FROM projects WHERE client_id = ? AND LOWER(TRIM(name)) = LOWER(TRIM(?)) AND deleted_at IS NULL",
+                (new_cid, pname),
+            ).fetchone()
+
+            if existing_proj:
+                new_pid = existing_proj["id"]
+            else:
+                sp_copy = dict(sp)
+                sp_copy["client_id"] = new_cid
+                # Temporary insert so we obtain new_pid for asset path rewriting
+                placeholders = ", ".join(["?"] * len(project_cols))
+                col_names = ", ".join(project_cols)
+                values = [sp_copy.get(c) for c in project_cols]
+                cur = dst_conn.execute(
+                    f"INSERT INTO projects ({col_names}) VALUES ({placeholders})",
+                    values,
+                )
+                new_pid = cur.lastrowid
+                stats["projects_added"] += 1
+
+            # Copy project assets from staging_dir/projects/<old_cid>/<old_pid>/assets
+            # to data/projects/<new_cid>/<new_pid>/assets
+            src_asset_dir = os.path.join(staged_projects_root, str(old_cid), str(old_pid), "assets")
+            if os.path.exists(src_asset_dir):
+                dst_asset_dir = os.path.join("data", "projects", str(new_cid), str(new_pid), "assets")
+                os.makedirs(dst_asset_dir, exist_ok=True)
+                for fname in os.listdir(src_asset_dir):
+                    s_file = os.path.join(src_asset_dir, fname)
+                    d_file = os.path.join(dst_asset_dir, fname)
+                    if os.path.isfile(s_file) and not os.path.exists(d_file):
+                        shutil.copy2(s_file, d_file)
+
+            # Rewrite attack_narrative asset URLs for new_cid / new_pid
+            if not existing_proj and sp.get("attack_narrative"):
+                rewritten_narrative = _rewrite_asset_file_urls(
+                    sp["attack_narrative"], new_client_id=new_cid, new_project_id=new_pid
+                )
+                dst_conn.execute(
+                    "UPDATE projects SET attack_narrative = ? WHERE id = ?",
+                    (rewritten_narrative, new_pid),
+                )
+
+            # Merge Findings for this project
+            src_findings = [
+                dict(r)
+                for r in src_conn.execute(
+                    "SELECT * FROM project_findings WHERE project_id = ?", (old_pid,)
+                ).fetchall()
+                if not dict(r).get("deleted_at")
+            ]
+            for sf in src_findings:
+                ftitle = sf.get("title") or ""
+                fsev = sf.get("severity") or "Info"
+                fhost = sf.get("host") or ""
+                fpath = sf.get("path") or ""
+
+                dup_finding = dst_conn.execute(
+                    """
+                    SELECT id FROM project_findings
+                    WHERE project_id = ? AND title = ? AND severity = ?
+                      AND COALESCE(host, '') = ? AND COALESCE(path, '') = ?
+                      AND deleted_at IS NULL
+                    """,
+                    (new_pid, ftitle, fsev, fhost, fpath),
+                ).fetchone()
+
+                if not dup_finding:
+                    rewritten_steps = _rewrite_asset_file_urls(
+                        sf.get("steps_to_reproduce") or "",
+                        new_client_id=new_cid,
+                        new_project_id=new_pid,
+                    )
+                    dst_conn.execute(
+                        """
+                        INSERT INTO project_findings (
+                            project_id, title, severity, description, remediation,
+                            cvss, host, path, cvss_vector, refs, steps_to_reproduce
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            new_pid,
+                            ftitle,
+                            fsev,
+                            sf.get("description") or "",
+                            sf.get("remediation") or "",
+                            sf.get("cvss") or 0.0,
+                            fhost,
+                            fpath,
+                            sf.get("cvss_vector") or "",
+                            sf.get("refs") or "",
+                            rewritten_steps,
+                        ),
+                    )
+                    stats["findings_added"] += 1
+
+        # 3. Merge Testers
+        try:
+            src_testers = [dict(r) for r in src_conn.execute("SELECT * FROM testers").fetchall()]
+            for st_row in src_testers:
+                tname = (st_row.get("name") or "").strip()
+                if not tname:
+                    continue
+                exists = dst_conn.execute(
+                    "SELECT id FROM testers WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))", (tname,)
+                ).fetchone()
+                if not exists:
+                    dst_conn.execute(
+                        "INSERT INTO testers (name, title, bio) VALUES (?, ?, ?)",
+                        (tname, st_row.get("title") or "", st_row.get("bio") or ""),
+                    )
+        except Exception:
+            pass
+
+        # 4. Merge Vulnerability Library
+        try:
+            src_vulns = [dict(r) for r in src_conn.execute("SELECT * FROM vuln_library").fetchall()]
+            for sv in src_vulns:
+                vtitle = (sv.get("title") or "").strip()
+                vsvc = sv.get("service_type") or "Web Application Penetration Test"
+                if not vtitle:
+                    continue
+                exists = dst_conn.execute(
+                    "SELECT id FROM vuln_library WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) AND COALESCE(service_type, '') = ?",
+                    (vtitle, vsvc),
+                ).fetchone()
+                if not exists:
+                    dst_conn.execute(
+                        """
+                        INSERT INTO vuln_library (
+                            service_type, title, severity, description, remediation,
+                            cvss, cve, cvss_vector, refs, steps_to_reproduce
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            vsvc,
+                            vtitle,
+                            sv.get("severity") or "Info",
+                            sv.get("description") or "",
+                            sv.get("remediation") or "",
+                            sv.get("cvss") or 0.0,
+                            sv.get("cve") or "",
+                            sv.get("cvss_vector") or "",
+                            sv.get("refs") or "",
+                            sv.get("steps_to_reproduce") or "",
+                        ),
+                    )
+                    stats["vulns_added"] += 1
+        except Exception:
+            pass
+
+        dst_conn.commit()
+    finally:
+        src_conn.close()
+        dst_conn.close()
+
+    return stats
+
+
+def restore_backup_archive(
+    zip_source,
+    preserve_current_users: bool = True,
+    merge_existing: bool = True,
+) -> dict[str, int]:
+    """Validate and restore (or merge) a Kairos backup ZIP archive into data/."""
+    import sqlite3
+    import zipfile
+    from database.db import DB_PATH, init_db
+
+    if not zipfile.is_zipfile(zip_source):
+        raise ValueError("The uploaded file is not a valid ZIP archive.")
+
+    zip_source.seek(0)
+    with tempfile.TemporaryDirectory() as staging_dir:
+        with zipfile.ZipFile(zip_source, "r") as zf:
+            names = zf.namelist()
+            has_root_db = "kairos.db" in names
+            has_nested_db = "data/kairos.db" in names
+            if not has_root_db and not has_nested_db:
+                raise ValueError("Invalid backup archive: 'kairos.db' was not found in the ZIP file.")
+
+            strip_prefix = "data/" if (has_nested_db and not has_root_db) else ""
+            real_staging = os.path.realpath(staging_dir)
+
+            for member in zf.infolist():
+                member_name = member.filename.replace("\\", "/")
+                if strip_prefix and member_name.startswith(strip_prefix):
+                    rel_name = member_name[len(strip_prefix):]
+                else:
+                    rel_name = member_name
+
+                rel_name = rel_name.lstrip("/")
+                if not rel_name:
+                    continue
+
+                dest_path = os.path.realpath(os.path.join(real_staging, rel_name))
+                if not (dest_path == real_staging or dest_path.startswith(real_staging + os.sep)):
+                    raise ValueError(f"Unsafe path detected in backup archive: {member.filename}")
+
+                if member.is_dir() or member_name.endswith("/"):
+                    os.makedirs(dest_path, exist_ok=True)
+                else:
+                    os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+                    with zf.open(member, "r") as src_f, open(dest_path, "wb") as dst_f:
+                        shutil.copyfileobj(src_f, dst_f)
+
+        staged_db = os.path.join(staging_dir, "kairos.db")
+        if not os.path.exists(staged_db):
+            raise ValueError("Invalid backup archive: 'kairos.db' could not be extracted.")
+
+        with open(staged_db, "rb") as db_f:
+            header = db_f.read(16)
+        if header != b"SQLite format 3\x00":
+            raise ValueError("Invalid backup archive: 'kairos.db' is not a valid SQLite database.")
+
+        # Verify SQLite integrity before modifying active data
+        test_conn = sqlite3.connect(staged_db)
+        try:
+            integrity = test_conn.execute("PRAGMA integrity_check").fetchone()
+            if not integrity or integrity[0].lower() != "ok":
+                raise ValueError("The backup database failed SQLite integrity verification.")
+        finally:
+            test_conn.close()
+
+        os.makedirs("data", exist_ok=True)
+
+        # Merge Mode: keep all existing clients/projects/findings and add new ones from the backup
+        if merge_existing and os.path.exists(DB_PATH):
+            init_db()
+            return _merge_backup_into_active_db(staging_dir, staged_db, DB_PATH)
+
+        # Full Replace Mode: overwrite database & assets
+        existing_users = []
+        existing_api_key = None
+        if preserve_current_users and os.path.exists(DB_PATH):
+            try:
+                cur_conn = sqlite3.connect(DB_PATH)
+                cur_conn.row_factory = sqlite3.Row
+                existing_users = [dict(r) for r in cur_conn.execute("SELECT * FROM users").fetchall()]
+                row = cur_conn.execute("SELECT value FROM settings WHERE key = 'gemini_api_key'").fetchone()
+                if row and row["value"]:
+                    existing_api_key = row["value"]
+                cur_conn.close()
+            except Exception:
+                pass
+
+        shutil.copy2(staged_db, DB_PATH)
+
+        staged_projects_dir = os.path.join(staging_dir, "projects")
+        target_projects_dir = os.path.join("data", "projects")
+        if os.path.exists(staged_projects_dir):
+            if os.path.exists(target_projects_dir):
+                shutil.rmtree(target_projects_dir)
+            shutil.copytree(staged_projects_dir, target_projects_dir)
+
+    init_db()
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        if preserve_current_users and existing_users:
+            for u in existing_users:
+                conn.execute(
+                    """
+                    INSERT INTO users (username, password_hash, mfa_secret, mfa_enabled)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(username) DO UPDATE SET
+                        password_hash = excluded.password_hash,
+                        mfa_secret = excluded.mfa_secret,
+                        mfa_enabled = excluded.mfa_enabled
+                    """,
+                    (
+                        u.get("username"),
+                        u.get("password_hash"),
+                        u.get("mfa_secret"),
+                        u.get("mfa_enabled", 0),
+                    ),
+                )
+
+        if existing_api_key:
+            row = conn.execute("SELECT value FROM settings WHERE key = 'gemini_api_key'").fetchone()
+            if not row or not row["value"]:
+                conn.execute(
+                    "INSERT OR REPLACE INTO settings (key, value) VALUES ('gemini_api_key', ?)",
+                    (existing_api_key,),
+                )
+
+        for f_row in conn.execute("SELECT id, steps_to_reproduce FROM project_findings WHERE steps_to_reproduce LIKE '%file://%'").fetchall():
+            updated_steps = _rewrite_asset_file_urls(f_row["steps_to_reproduce"])
+            if updated_steps != f_row["steps_to_reproduce"]:
+                conn.execute(
+                    "UPDATE project_findings SET steps_to_reproduce = ? WHERE id = ?",
+                    (updated_steps, f_row["id"]),
+                )
+
+        for p_row in conn.execute("SELECT id, attack_narrative FROM projects WHERE attack_narrative LIKE '%file://%'").fetchall():
+            updated_narrative = _rewrite_asset_file_urls(p_row["attack_narrative"])
+            if updated_narrative != p_row["attack_narrative"]:
+                conn.execute(
+                    "UPDATE projects SET attack_narrative = ? WHERE id = ?",
+                    (updated_narrative, p_row["id"]),
+                )
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {"clients_added": -1, "projects_added": -1, "findings_added": -1, "vulns_added": -1}
