@@ -7,6 +7,7 @@ from parsers.nessus import parse_nessus
 from parsers.burp import parse_burp
 from parsers.azure_audit import parse_azure_audit
 from parsers.aws_audit import parse_aws_audit
+from parsers.strix import parse_strix
 from utils.helpers import process_base64_images, restore_base64_images, sanitize_rich_html
 
 def show_manage_findings():
@@ -233,7 +234,7 @@ def show_manage_findings():
                     st.rerun()
 
     with st.expander("Import Scanner Output"):
-        import_type = st.radio("Select Tool", ["Nessus", "Burp Suite", "Azure-Audit (JSON)", "AWS-Audit (JSON)"], horizontal=True)
+        import_type = st.radio("Select Tool", ["Nessus", "Burp Suite", "Strix (JSON)", "Azure-Audit (JSON)", "AWS-Audit (JSON)"], horizontal=True)
         
         if import_type == "Nessus":
             uploaded_file = st.file_uploader("Upload Nessus File (.nessus)", type=['nessus', 'xml'])
@@ -241,6 +242,9 @@ def show_manage_findings():
         elif import_type == "Burp Suite":
             uploaded_file = st.file_uploader("Upload Burp XML File", type=['xml'])
             parser_func = parse_burp
+        elif import_type == "Strix (JSON)":
+            uploaded_file = st.file_uploader("Upload Strix JSON (vulnerabilities.json)", type=['json'])
+            parser_func = parse_strix
         elif import_type == "Azure-Audit (JSON)":
             uploaded_file = st.file_uploader("Upload Azure-Audit JSON", type=['json'])
             parser_func = parse_azure_audit
@@ -253,7 +257,8 @@ def show_manage_findings():
         
         enhance_with_ai = False
         if gemini_api_key:
-            enhance_with_ai = st.checkbox("Enhance findings with AI (Gemini)", value=True)
+            default_ai = import_type != "Strix (JSON)"
+            enhance_with_ai = st.checkbox("Enhance findings with AI (Gemini)", value=default_ai)
         else:
             st.info("💡 To enable AI-powered finding enhancement, add your Gemini API Key in the Dashboard settings.")
         
